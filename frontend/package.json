@@ -69,7 +69,9 @@
     "fs": "latest",
     "path": "latest",
     "pdfkit": "latest",
-    "@sendgrid/mail": "latest"
+    "@sendgrid/mail": "latest",
+    "html2canvas": "^1.4.1",
+    "jspdf": "^2.5.1"
   },
   "devDependencies": {
     "@types/node": "^22",

@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState, useRef } from "react"
+import { useState, useRef, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -12,16 +12,43 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Calendar } from "@/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { format } from "date-fns"
-import { CalendarIcon, Plus, Trash2, FileText, Download, Send, Eye, ImageIcon, Pencil } from "lucide-react"
+import { format, addDays } from "date-fns"
+import { CalendarIcon, Plus, Trash2, FileText, Send, ImageIcon, Pencil, Save } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { invoicesAPI, clientsAPI, apiHandler } from "@/lib/api"
 import { toast } from "@/components/ui/use-toast"
 import { LoadingSpinner } from "@/components/loading-spinner"
 import { useRouter } from "next/navigation"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { Switch } from "@/components/ui/switch"
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
+import { InvoicePreview } from "@/components/invoice-preview"
 
 interface Client {
   _id: string
+  name: string
+  email: string
+  address?: string
+  phone?: string
+}
+
+interface TempClient {
   name: string
   email: string
   address?: string
@@ -39,9 +66,15 @@ export function CreateInvoiceForm() {
   const router = useRouter()
   const [clients, setClients] = useState<Client[]>([])
   const [selectedClient, setSelectedClient] = useState<string>("")
-  const [dueDate, setDueDate] = useState<Date | undefined>(
-    new Date(Date.now() + 14 * 24 * 60 * 60 * 1000), // Default to 14 days from now
-  )
+  const [clientMode, setClientMode] = useState<"existing" | "new">("existing")
+  const [saveClientToDb, setSaveClientToDb] = useState(false)
+  const [tempClient, setTempClient] = useState<TempClient>({
+    name: "",
+    email: "",
+    address: "",
+    phone: "",
+  })
+  const [dueDate, setDueDate] = useState<Date | undefined>(addDays(new Date(), 14))
   const [lineItems, setLineItems] = useState<LineItem[]>([{ id: "1", description: "", quantity: 1, price: 0 }])
   const [notes, setNotes] = useState<string>("")
   const [isLoading, setIsLoading] = useState<boolean>(false)
@@ -54,8 +87,28 @@ export function CreateInvoiceForm() {
   const logoInputRef = useRef<HTMLInputElement>(null)
   const signatureInputRef = useRef<HTMLInputElement>(null)
 
+  const [companyGst, setCompanyGst] = useState<string>("27AADCB2230M1ZT")
+  const [companyPan, setCompanyPan] = useState<string>("AADCB2230M")
+
+  // New client form state
+  const [isNewClientDialogOpen, setIsNewClientDialogOpen] = useState(false)
+  const [newClientName, setNewClientName] = useState("")
+  const [newClientEmail, setNewClientEmail] = useState("")
+  const [newClientPhone, setNewClientPhone] = useState("")
+  const [newClientAddress, setNewClientAddress] = useState("")
+  const [isSubmittingClient, setIsSubmittingClient] = useState(false)
+
+  // Product templates for quick addition
+  const productTemplates = [
+    { name: "Web Design", description: "Professional website design services", price: 1500 },
+    { name: "Logo Design", description: "Custom logo design with revisions", price: 500 },
+    { name: "Consulting", description: "Professional consulting services (hourly)", price: 150 },
+    { name: "Development", description: "Software development services", price: 2000 },
+    { name: "Maintenance", description: "Monthly website maintenance", price: 250 },
+  ]
+
   // Fetch clients on component mount
-  useState(() => {
+  useEffect(() => {
     const fetchClients = async () => {
       try {
         const clientsData = await clientsAPI.getAll()
@@ -72,7 +125,7 @@ export function CreateInvoiceForm() {
     }
 
     fetchClients()
-  })
+  }, [])
 
   const handleAddLineItem = () => {
     setLineItems([
@@ -82,6 +135,18 @@ export function CreateInvoiceForm() {
         description: "",
         quantity: 1,
         price: 0,
+      },
+    ])
+  }
+
+  const handleAddProductTemplate = (template: (typeof productTemplates)[0]) => {
+    setLineItems([
+      ...lineItems,
+      {
+        id: `item-${Date.now()}`,
+        description: `${template.name}: ${template.description}`,
+        quantity: 1,
+        price: template.price,
       },
     ])
   }
@@ -122,11 +187,61 @@ export function CreateInvoiceForm() {
     }
   }
 
+  const handleCreateClient = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setIsSubmittingClient(true)
+
+    try {
+      const clientData = {
+        name: newClientName,
+        email: newClientEmail,
+        phone: newClientPhone || undefined,
+        address: newClientAddress || undefined,
+      }
+
+      const result = await apiHandler(() => clientsAPI.create(clientData), {
+        successMessage: "Client created successfully!",
+        errorMessage: "Failed to create client. Please try again.",
+      })
+
+      if (result) {
+        // Add the new client to the list and select it
+        setClients([...clients, result.client])
+        setSelectedClient(result.client._id)
+        setIsNewClientDialogOpen(false)
+
+        // Reset form
+        setNewClientName("")
+        setNewClientEmail("")
+        setNewClientPhone("")
+        setNewClientAddress("")
+      }
+    } catch (error) {
+      console.error("Error creating client:", error)
+    } finally {
+      setIsSubmittingClient(false)
+    }
+  }
+
+  const handleTempClientChange = (field: keyof TempClient, value: string) => {
+    setTempClient({ ...tempClient, [field]: value })
+  }
+
   const handleSubmit = async (action: "save" | "send") => {
-    if (!selectedClient) {
+    // Validate client information
+    if (clientMode === "existing" && !selectedClient) {
       toast({
         title: "Missing client",
         description: "Please select a client for this invoice.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    if (clientMode === "new" && (!tempClient.name || !tempClient.email)) {
+      toast({
+        title: "Missing client information",
+        description: "Please provide at least a name and email for the client.",
         variant: "destructive",
       })
       return
@@ -158,12 +273,49 @@ export function CreateInvoiceForm() {
     setIsLoading(true)
 
     try {
+      let clientId = selectedClient
+
+      // If using a new client and saving to DB, create the client first
+      if (clientMode === "new" && saveClientToDb) {
+        const clientResult = await apiHandler(
+          () =>
+            clientsAPI.create({
+              name: tempClient.name,
+              email: tempClient.email,
+              phone: tempClient.phone || undefined,
+              address: tempClient.address || undefined,
+            }),
+          {
+            successMessage: "Client saved to database!",
+            errorMessage: "Failed to save client. Continuing with invoice creation.",
+            showSuccessToast: true,
+          },
+        )
+
+        if (clientResult) {
+          clientId = clientResult.client._id
+          // Add to clients list
+          setClients([...clients, clientResult.client])
+        }
+      }
+
       // Create invoice
       const invoiceData = {
-        clientId: selectedClient,
+        clientId: clientId,
         totalAmount: calculateSubtotal(),
         dueDate: dueDate.toISOString(),
         lineItems: validLineItems.map(({ id, ...item }) => item), // Remove the id property
+        // If using a new client without saving to DB, include client info
+        ...(clientMode === "new" && !saveClientToDb
+          ? {
+              tempClient: {
+                name: tempClient.name,
+                email: tempClient.email,
+                phone: tempClient.phone,
+                address: tempClient.address,
+              },
+            }
+          : {}),
       }
 
       const result = await apiHandler(() => invoicesAPI.create(invoiceData), {
@@ -204,156 +356,130 @@ export function CreateInvoiceForm() {
         </div>
 
         <TabsContent value="details" className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Company Details</CardTitle>
-                <CardDescription>Add your company information to the invoice</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="companyLogo">Company Logo</Label>
-                    <div
-                      className="mt-2 border-2 border-dashed rounded-md p-4 h-40 flex flex-col items-center justify-center cursor-pointer hover:bg-muted/50 transition-colors"
-                      onClick={() => logoInputRef.current?.click()}
-                    >
-                      {companyLogo ? (
-                        <div className="relative w-full h-full">
-                          <img
-                            src={companyLogo || "/placeholder.svg"}
-                            alt="Company Logo"
-                            className="w-full h-full object-contain"
-                          />
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="absolute top-0 right-0 bg-background/80 hover:bg-background"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              setCompanyLogo(null)
-                            }}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      ) : (
-                        <>
-                          <ImageIcon className="h-10 w-10 text-muted-foreground mb-2" />
-                          <p className="text-sm text-muted-foreground">Drop your image here or click to browse</p>
-                          <p className="text-xs text-muted-foreground mt-1">Max size: 5MB</p>
-                        </>
-                      )}
-                      <input
-                        ref={logoInputRef}
-                        type="file"
-                        id="companyLogo"
-                        className="hidden"
-                        accept="image/*"
-                        onChange={handleLogoUpload}
-                      />
-                    </div>
-                  </div>
-                  <div>
-                    <Label htmlFor="companySignature">Company Signature</Label>
-                    <div
-                      className="mt-2 border-2 border-dashed rounded-md p-4 h-40 flex flex-col items-center justify-center cursor-pointer hover:bg-muted/50 transition-colors"
-                      onClick={() => signatureInputRef.current?.click()}
-                    >
-                      {companySignature ? (
-                        <div className="relative w-full h-full">
-                          <img
-                            src={companySignature || "/placeholder.svg"}
-                            alt="Company Signature"
-                            className="w-full h-full object-contain"
-                          />
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="absolute top-0 right-0 bg-background/80 hover:bg-background"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              setCompanySignature(null)
-                            }}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      ) : (
-                        <>
-                          <Pencil className="h-10 w-10 text-muted-foreground mb-2" />
-                          <p className="text-sm text-muted-foreground">Drop your signature here or click to browse</p>
-                          <p className="text-xs text-muted-foreground mt-1">Max size: 5MB</p>
-                        </>
-                      )}
-                      <input
-                        ref={signatureInputRef}
-                        type="file"
-                        id="companySignature"
-                        className="hidden"
-                        accept="image/*"
-                        onChange={handleSignatureUpload}
-                      />
-                    </div>
-                  </div>
+          <Card>
+            <CardHeader>
+              <CardTitle>Client Information</CardTitle>
+              <CardDescription>Select an existing client or add a new one</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <RadioGroup
+                value={clientMode}
+                onValueChange={(value) => setClientMode(value as "existing" | "new")}
+                className="flex flex-col space-y-4"
+              >
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="existing" id="existing" />
+                  <Label htmlFor="existing" className="font-medium">
+                    Use existing client
+                  </Label>
                 </div>
-                <div>
-                  <Label htmlFor="companyName">Company Name</Label>
-                  <Input
-                    id="companyName"
-                    value={companyName}
-                    onChange={(e) => setCompanyName(e.target.value)}
-                    className="mt-1"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="companyAddress">Company Address</Label>
-                  <Textarea
-                    id="companyAddress"
-                    value={companyAddress}
-                    onChange={(e) => setCompanyAddress(e.target.value)}
-                    className="mt-1"
-                    rows={3}
-                  />
-                </div>
-              </CardContent>
-            </Card>
 
-            <Card>
-              <CardHeader>
-                <CardTitle>Client Details</CardTitle>
-                <CardDescription>Select a client for this invoice</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {isFetchingClients ? (
-                  <div className="flex justify-center py-4">
-                    <LoadingSpinner />
-                  </div>
-                ) : clients.length === 0 ? (
-                  <div className="text-center py-4">
-                    <p className="text-muted-foreground mb-4">No clients found. Add a client first.</p>
-                    <Button variant="outline" onClick={() => router.push("/dashboard/clients")}>
-                      <Plus className="mr-2 h-4 w-4" />
-                      Add Client
-                    </Button>
-                  </div>
-                ) : (
-                  <>
-                    <div>
-                      <Label htmlFor="client">Select Client</Label>
-                      <Select value={selectedClient} onValueChange={setSelectedClient}>
-                        <SelectTrigger id="client" className="mt-1">
-                          <SelectValue placeholder="Select a client" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {clients.map((client) => (
-                            <SelectItem key={client._id} value={client._id}>
-                              {client.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
+                {clientMode === "existing" && (
+                  <div className="ml-6 space-y-4">
+                    {isFetchingClients ? (
+                      <div className="flex justify-center py-4">
+                        <LoadingSpinner />
+                      </div>
+                    ) : (
+                      <div className="flex flex-col md:flex-row gap-4">
+                        <div className="flex-1">
+                          <Label htmlFor="client">Select Client</Label>
+                          <Select value={selectedClient} onValueChange={setSelectedClient}>
+                            <SelectTrigger id="client" className="mt-1">
+                              <SelectValue placeholder="Select a client" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {clients.map((client) => (
+                                <SelectItem key={client._id} value={client._id}>
+                                  {client.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="flex items-end">
+                          <Dialog open={isNewClientDialogOpen} onOpenChange={setIsNewClientDialogOpen}>
+                            <DialogTrigger asChild>
+                              <Button variant="outline">
+                                <Plus className="mr-2 h-4 w-4" />
+                                Add New Client
+                              </Button>
+                            </DialogTrigger>
+                            <DialogContent className="sm:max-w-[500px]">
+                              <DialogHeader>
+                                <DialogTitle>Add New Client</DialogTitle>
+                                <DialogDescription>
+                                  Fill in the client's details to add them to your client list.
+                                </DialogDescription>
+                              </DialogHeader>
+                              <form onSubmit={handleCreateClient}>
+                                <div className="grid gap-4 py-4">
+                                  <div className="grid gap-2">
+                                    <Label htmlFor="newClientName">Name</Label>
+                                    <Input
+                                      id="newClientName"
+                                      value={newClientName}
+                                      onChange={(e) => setNewClientName(e.target.value)}
+                                      placeholder="John Doe"
+                                      required
+                                    />
+                                  </div>
+                                  <div className="grid gap-2">
+                                    <Label htmlFor="newClientEmail">Email</Label>
+                                    <Input
+                                      id="newClientEmail"
+                                      type="email"
+                                      value={newClientEmail}
+                                      onChange={(e) => setNewClientEmail(e.target.value)}
+                                      placeholder="john@example.com"
+                                      required
+                                    />
+                                  </div>
+                                  <div className="grid gap-2">
+                                    <Label htmlFor="newClientPhone">Phone (optional)</Label>
+                                    <Input
+                                      id="newClientPhone"
+                                      value={newClientPhone}
+                                      onChange={(e) => setNewClientPhone(e.target.value)}
+                                      placeholder="+1 (555) 123-4567"
+                                    />
+                                  </div>
+                                  <div className="grid gap-2">
+                                    <Label htmlFor="newClientAddress">Address (optional)</Label>
+                                    <Textarea
+                                      id="newClientAddress"
+                                      value={newClientAddress}
+                                      onChange={(e) => setNewClientAddress(e.target.value)}
+                                      placeholder="123 Main St, Anytown, USA"
+                                      rows={3}
+                                    />
+                                  </div>
+                                </div>
+                                <DialogFooter>
+                                  <Button
+                                    variant="outline"
+                                    type="button"
+                                    onClick={() => setIsNewClientDialogOpen(false)}
+                                  >
+                                    Cancel
+                                  </Button>
+                                  <Button type="submit" disabled={isSubmittingClient}>
+                                    {isSubmittingClient ? (
+                                      <span className="flex items-center">
+                                        <LoadingSpinner size="sm" className="mr-2" />
+                                        Creating...
+                                      </span>
+                                    ) : (
+                                      <span>Add Client</span>
+                                    )}
+                                  </Button>
+                                </DialogFooter>
+                              </form>
+                            </DialogContent>
+                          </Dialog>
+                        </div>
+                      </div>
+                    )}
 
                     {selectedClientData && (
                       <div className="border rounded-md p-4 mt-4 bg-muted/30">
@@ -368,11 +494,74 @@ export function CreateInvoiceForm() {
                         )}
                       </div>
                     )}
-                  </>
+                  </div>
                 )}
-              </CardContent>
-            </Card>
-          </div>
+
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="new" id="new" />
+                  <Label htmlFor="new" className="font-medium">
+                    Add new client information
+                  </Label>
+                </div>
+
+                {clientMode === "new" && (
+                  <div className="ml-6 space-y-4">
+                    <div className="grid gap-4">
+                      <div className="grid gap-2">
+                        <Label htmlFor="tempClientName">Client Name</Label>
+                        <Input
+                          id="tempClientName"
+                          value={tempClient.name}
+                          onChange={(e) => handleTempClientChange("name", e.target.value)}
+                          placeholder="John Doe"
+                          required
+                        />
+                      </div>
+                      <div className="grid gap-2">
+                        <Label htmlFor="tempClientEmail">Client Email</Label>
+                        <Input
+                          id="tempClientEmail"
+                          type="email"
+                          value={tempClient.email}
+                          onChange={(e) => handleTempClientChange("email", e.target.value)}
+                          placeholder="john@example.com"
+                          required
+                        />
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="grid gap-2">
+                          <Label htmlFor="tempClientPhone">Client Phone (optional)</Label>
+                          <Input
+                            id="tempClientPhone"
+                            value={tempClient.phone}
+                            onChange={(e) => handleTempClientChange("phone", e.target.value)}
+                            placeholder="+1 (555) 123-4567"
+                          />
+                        </div>
+                        <div className="grid gap-2">
+                          <Label htmlFor="tempClientAddress">Client Address (optional)</Label>
+                          <Textarea
+                            id="tempClientAddress"
+                            value={tempClient.address}
+                            onChange={(e) => handleTempClientChange("address", e.target.value)}
+                            placeholder="123 Main St, Anytown, USA"
+                            rows={2}
+                          />
+                        </div>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <Switch id="saveClient" checked={saveClientToDb} onCheckedChange={setSaveClientToDb} />
+                        <Label htmlFor="saveClient" className="flex items-center gap-2">
+                          Save client to database
+                          {saveClientToDb && <Save className="h-4 w-4 text-green-500" />}
+                        </Label>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </RadioGroup>
+            </CardContent>
+          </Card>
 
           <Card>
             <CardHeader>
@@ -412,9 +601,27 @@ export function CreateInvoiceForm() {
               <div>
                 <div className="flex justify-between items-center mb-2">
                   <Label>Line Items</Label>
-                  <Button variant="outline" size="sm" onClick={handleAddLineItem}>
-                    <Plus className="h-4 w-4 mr-1" /> Add Item
-                  </Button>
+                  <div className="flex gap-2">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="outline" size="sm">
+                          <Plus className="h-4 w-4 mr-1" /> Add Product
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuLabel>Quick Add Products</DropdownMenuLabel>
+                        <DropdownMenuSeparator />
+                        {productTemplates.map((template, index) => (
+                          <DropdownMenuItem key={index} onClick={() => handleAddProductTemplate(template)}>
+                            {template.name} - ${template.price}
+                          </DropdownMenuItem>
+                        ))}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                    <Button variant="outline" size="sm" onClick={handleAddLineItem}>
+                      <Plus className="h-4 w-4 mr-1" /> Add Custom Item
+                    </Button>
+                  </div>
                 </div>
                 <div className="border rounded-md overflow-hidden">
                   <table className="w-full">
@@ -499,6 +706,142 @@ export function CreateInvoiceForm() {
                 />
               </div>
             </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Company Details</CardTitle>
+              <CardDescription>Add your company information to the invoice</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="companyLogo">Company Logo</Label>
+                  <div
+                    className="mt-2 border-2 border-dashed rounded-md p-4 h-40 flex flex-col items-center justify-center cursor-pointer hover:bg-muted/50 transition-colors"
+                    onClick={() => logoInputRef.current?.click()}
+                  >
+                    {companyLogo ? (
+                      <div className="relative w-full h-full">
+                        <img
+                          src={companyLogo || "/placeholder.svg"}
+                          alt="Company Logo"
+                          className="w-full h-full object-contain"
+                        />
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="absolute top-0 right-0 bg-background/80 hover:bg-background"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setCompanyLogo(null)
+                          }}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ) : (
+                      <>
+                        <ImageIcon className="h-10 w-10 text-muted-foreground mb-2" />
+                        <p className="text-sm text-muted-foreground">Drop your image here or click to browse</p>
+                        <p className="text-xs text-muted-foreground mt-1">Max size: 5MB</p>
+                      </>
+                    )}
+                    <input
+                      ref={logoInputRef}
+                      type="file"
+                      id="companyLogo"
+                      className="hidden"
+                      accept="image/*"
+                      onChange={handleLogoUpload}
+                    />
+                  </div>
+                </div>
+                <div>
+                  <Label htmlFor="companySignature">Company Signature</Label>
+                  <div
+                    className="mt-2 border-2 border-dashed rounded-md p-4 h-40 flex flex-col items-center justify-center cursor-pointer hover:bg-muted/50 transition-colors"
+                    onClick={() => signatureInputRef.current?.click()}
+                  >
+                    {companySignature ? (
+                      <div className="relative w-full h-full">
+                        <img
+                          src={companySignature || "/placeholder.svg"}
+                          alt="Company Signature"
+                          className="w-full h-full object-contain"
+                        />
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="absolute top-0 right-0 bg-background/80 hover:bg-background"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setCompanySignature(null)
+                          }}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ) : (
+                      <>
+                        <Pencil className="h-10 w-10 text-muted-foreground mb-2" />
+                        <p className="text-sm text-muted-foreground">Drop your signature here or click to browse</p>
+                        <p className="text-xs text-muted-foreground mt-1">Max size: 5MB</p>
+                      </>
+                    )}
+                    <input
+                      ref={signatureInputRef}
+                      type="file"
+                      id="companySignature"
+                      className="hidden"
+                      accept="image/*"
+                      onChange={handleSignatureUpload}
+                    />
+                  </div>
+                </div>
+              </div>
+              <div>
+                <Label htmlFor="companyName">Company Name</Label>
+                <Input
+                  id="companyName"
+                  value={companyName}
+                  onChange={(e) => setCompanyName(e.target.value)}
+                  className="mt-1"
+                />
+              </div>
+              <div>
+                <Label htmlFor="companyAddress">Company Address</Label>
+                <Textarea
+                  id="companyAddress"
+                  value={companyAddress}
+                  onChange={(e) => setCompanyAddress(e.target.value)}
+                  className="mt-1"
+                  rows={3}
+                />
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="companyGst">GST Number</Label>
+                  <Input
+                    id="companyGst"
+                    value={companyGst}
+                    onChange={(e) => setCompanyGst(e.target.value)}
+                    className="mt-1"
+                    placeholder="27AADCB2230M1ZT"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="companyPan">PAN Number</Label>
+                  <Input
+                    id="companyPan"
+                    value={companyPan}
+                    onChange={(e) => setCompanyPan(e.target.value)}
+                    className="mt-1"
+                    placeholder="AADCB2230M"
+                  />
+                </div>
+              </div>
+            </CardContent>
             <CardFooter className="flex justify-end space-x-2">
               <Button variant="outline" onClick={() => router.push("/dashboard")}>
                 Cancel
@@ -539,146 +882,23 @@ export function CreateInvoiceForm() {
         </TabsContent>
 
         <TabsContent value="preview" className="space-y-6">
-          <Card>
-            <CardContent className="p-6">
-              <div className="border rounded-lg p-8 bg-white dark:bg-gray-800 shadow-sm">
-                <div className="flex justify-between items-start mb-8">
-                  <div className="space-y-2">
-                    {companyLogo ? (
-                      <img
-                        src={companyLogo || "/placeholder.svg"}
-                        alt="Company Logo"
-                        className="max-h-20 max-w-[200px] object-contain mb-2"
-                      />
-                    ) : (
-                      <div className="h-16 w-40 bg-gray-200 dark:bg-gray-700 rounded-md"></div>
-                    )}
-                    <h3 className="font-bold text-lg">{companyName}</h3>
-                    <p className="text-sm text-muted-foreground whitespace-pre-line">{companyAddress}</p>
-                  </div>
-                  <div className="text-right">
-                    <h1 className="text-3xl font-bold text-purple-600 mb-2">INVOICE</h1>
-                    <p className="text-sm text-muted-foreground">Date: {format(new Date(), "PPP")}</p>
-                    <p className="text-sm text-muted-foreground">
-                      Due Date: {dueDate ? format(dueDate, "PPP") : "Not set"}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-8 mb-8">
-                  <div>
-                    <h3 className="font-medium text-muted-foreground mb-2">Bill To:</h3>
-                    {selectedClientData ? (
-                      <div>
-                        <p className="font-medium">{selectedClientData.name}</p>
-                        <p className="text-sm text-muted-foreground">{selectedClientData.email}</p>
-                        {selectedClientData.address && (
-                          <p className="text-sm text-muted-foreground">{selectedClientData.address}</p>
-                        )}
-                        {selectedClientData.phone && (
-                          <p className="text-sm text-muted-foreground">{selectedClientData.phone}</p>
-                        )}
-                      </div>
-                    ) : (
-                      <p className="text-muted-foreground italic">No client selected</p>
-                    )}
-                  </div>
-                  <div>
-                    <h3 className="font-medium text-muted-foreground mb-2">Invoice Details:</h3>
-                    <div className="grid grid-cols-2 gap-x-4 gap-y-1">
-                      <p className="text-sm">Invoice Number:</p>
-                      <p className="text-sm font-medium">INV-0001</p>
-                      <p className="text-sm">Payment Terms:</p>
-                      <p className="text-sm font-medium">Due on receipt</p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="mb-8">
-                  <table className="w-full">
-                    <thead>
-                      <tr className="bg-purple-100 dark:bg-purple-900/30 text-left">
-                        <th className="p-3 rounded-tl-md">Description</th>
-                        <th className="p-3 text-right">Quantity</th>
-                        <th className="p-3 text-right">Price</th>
-                        <th className="p-3 text-right rounded-tr-md">Amount</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {lineItems.map((item, index) => (
-                        <tr key={item.id} className="border-b">
-                          <td className="p-3">{item.description || "Item description"}</td>
-                          <td className="p-3 text-right">{item.quantity}</td>
-                          <td className="p-3 text-right">${item.price.toFixed(2)}</td>
-                          <td className="p-3 text-right">${(item.quantity * item.price).toFixed(2)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                    <tfoot>
-                      <tr>
-                        <td colSpan={3} className="p-3 text-right font-medium">
-                          Subtotal:
-                        </td>
-                        <td className="p-3 text-right font-medium">${calculateSubtotal().toFixed(2)}</td>
-                      </tr>
-                      <tr>
-                        <td colSpan={3} className="p-3 text-right font-medium">
-                          Total:
-                        </td>
-                        <td className="p-3 text-right font-bold text-lg">${calculateSubtotal().toFixed(2)}</td>
-                      </tr>
-                    </tfoot>
-                  </table>
-                </div>
-
-                {notes && (
-                  <div className="mb-8">
-                    <h3 className="font-medium mb-2">Notes:</h3>
-                    <p className="text-sm text-muted-foreground whitespace-pre-line">{notes}</p>
-                  </div>
-                )}
-
-                <div className="mt-12 pt-8 border-t">
-                  <div className="flex justify-between items-end">
-                    <div>
-                      <p className="text-sm text-muted-foreground mb-4">Thank you for your business!</p>
-                      <p className="text-xs text-muted-foreground">
-                        Please make payment by the due date to the account details provided.
-                      </p>
-                    </div>
-                    {companySignature && (
-                      <div className="text-right">
-                        <img
-                          src={companySignature || "/placeholder.svg"}
-                          alt="Signature"
-                          className="max-h-16 max-w-[200px] object-contain inline-block mb-2"
-                        />
-                        <p className="text-sm text-muted-foreground">Authorized Signature</p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-            <CardFooter className="flex justify-end space-x-2">
-              <Button variant="outline">
-                <Eye className="mr-2 h-4 w-4" />
-                Print Preview
-              </Button>
-              <Button variant="outline">
-                <Download className="mr-2 h-4 w-4" />
-                Download PDF
-              </Button>
-              <Button
-                variant="default"
-                className="bg-purple-600 hover:bg-purple-700"
-                onClick={() => setActiveTab("details")}
-              >
-                <Pencil className="mr-2 h-4 w-4" />
-                Edit Invoice
-              </Button>
-            </CardFooter>
-          </Card>
+          <InvoicePreview
+            invoiceData={{
+              companyName,
+              companyAddress,
+              companyLogo,
+              companySignature,
+              companyGst,
+              companyPan,
+              clientMode,
+              selectedClientData,
+              tempClient,
+              dueDate,
+              lineItems,
+              notes,
+            }}
+            onEditClick={() => setActiveTab("details")}
+          />
         </TabsContent>
       </Tabs>
     </div>
