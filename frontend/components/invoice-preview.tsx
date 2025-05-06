@@ -34,8 +34,16 @@ interface InvoicePreviewProps {
       description: string
       quantity: number
       price: number
+      taxable: boolean
     }>
     notes: string
+    taxInfo: {
+      cgstRate: number
+      sgstRate: number
+      cgstAmount: number
+      sgstAmount: number
+      taxableAmount: number
+    }
   }
   onEditClick: () => void
 }
@@ -55,18 +63,15 @@ export function InvoicePreview({ invoiceData, onEditClick }: InvoicePreviewProps
     dueDate,
     lineItems,
     notes,
+    taxInfo,
   } = invoiceData
 
   const calculateSubtotal = () => {
     return lineItems.reduce((sum, item) => sum + item.quantity * item.price, 0)
   }
 
-  const calculateGst = () => {
-    return calculateSubtotal() * 0.18 // 18% GST
-  }
-
   const calculateTotal = () => {
-    return calculateSubtotal() + calculateGst()
+    return calculateSubtotal() + taxInfo.cgstAmount + taxInfo.sgstAmount
   }
 
   const clientData = clientMode === "existing" ? selectedClientData : tempClient
@@ -141,6 +146,7 @@ export function InvoicePreview({ invoiceData, onEditClick }: InvoicePreviewProps
                   <th className="p-3 rounded-tl-md">Description</th>
                   <th className="p-3 text-right">Quantity</th>
                   <th className="p-3 text-right">Price</th>
+                  <th className="p-3 text-right">Taxable</th>
                   <th className="p-3 text-right rounded-tr-md">Amount</th>
                 </tr>
               </thead>
@@ -150,25 +156,32 @@ export function InvoicePreview({ invoiceData, onEditClick }: InvoicePreviewProps
                     <td className="p-3">{item.description || "Item description"}</td>
                     <td className="p-3 text-right">{item.quantity}</td>
                     <td className="p-3 text-right">₹{item.price.toFixed(2)}</td>
+                    <td className="p-3 text-right">{item.taxable ? "Yes" : "No"}</td>
                     <td className="p-3 text-right">₹{(item.quantity * item.price).toFixed(2)}</td>
                   </tr>
                 ))}
               </tbody>
               <tfoot>
                 <tr>
-                  <td colSpan={3} className="p-3 text-right font-medium">
+                  <td colSpan={4} className="p-3 text-right font-medium">
                     Subtotal:
                   </td>
                   <td className="p-3 text-right font-medium">₹{calculateSubtotal().toFixed(2)}</td>
                 </tr>
                 <tr>
-                  <td colSpan={3} className="p-3 text-right font-medium">
-                    GST (18%):
+                  <td colSpan={4} className="p-3 text-right font-medium">
+                    CGST ({taxInfo.cgstRate}%):
                   </td>
-                  <td className="p-3 text-right font-medium">₹{calculateGst().toFixed(2)}</td>
+                  <td className="p-3 text-right font-medium">₹{taxInfo.cgstAmount.toFixed(2)}</td>
                 </tr>
                 <tr>
-                  <td colSpan={3} className="p-3 text-right font-medium">
+                  <td colSpan={4} className="p-3 text-right font-medium">
+                    SGST ({taxInfo.sgstRate}%):
+                  </td>
+                  <td className="p-3 text-right font-medium">₹{taxInfo.sgstAmount.toFixed(2)}</td>
+                </tr>
+                <tr>
+                  <td colSpan={4} className="p-3 text-right font-medium">
                     Total:
                   </td>
                   <td className="p-3 text-right font-bold text-lg">₹{calculateTotal().toFixed(2)}</td>

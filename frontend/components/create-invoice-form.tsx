@@ -13,7 +13,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Calendar } from "@/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { format, addDays } from "date-fns"
-import { CalendarIcon, Plus, Trash2, FileText, Send, ImageIcon, Pencil, Save } from "lucide-react"
+import { CalendarIcon, Plus, Trash2, FileText, Send, ImageIcon, Pencil, Save, ExternalLink } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { invoicesAPI, clientsAPI, apiHandler } from "@/lib/api"
 import { toast } from "@/components/ui/use-toast"
@@ -39,6 +39,8 @@ import {
 import { Switch } from "@/components/ui/switch"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { InvoicePreview } from "@/components/invoice-preview"
+import { ProductSelector } from "@/components/product-selector"
+import Link from "next/link"
 
 interface Client {
   _id: string
@@ -60,6 +62,15 @@ interface LineItem {
   description: string
   quantity: number
   price: number
+  taxable: boolean
+}
+
+interface Product {
+  _id: string
+  name: string
+  description: string
+  price: number
+  taxable: boolean
 }
 
 export function CreateInvoiceForm() {
@@ -75,7 +86,9 @@ export function CreateInvoiceForm() {
     phone: "",
   })
   const [dueDate, setDueDate] = useState<Date | undefined>(addDays(new Date(), 14))
-  const [lineItems, setLineItems] = useState<LineItem[]>([{ id: "1", description: "", quantity: 1, price: 0 }])
+  const [lineItems, setLineItems] = useState<LineItem[]>([
+    { id: "1", description: "", quantity: 1, price: 0, taxable: true },
+  ])
   const [notes, setNotes] = useState<string>("")
   const [isLoading, setIsLoading] = useState<boolean>(false)
   const [isFetchingClients, setIsFetchingClients] = useState<boolean>(true)
@@ -90,6 +103,11 @@ export function CreateInvoiceForm() {
   const [companyGst, setCompanyGst] = useState<string>("27AADCB2230M1ZT")
   const [companyPan, setCompanyPan] = useState<string>("AADCB2230M")
 
+  // GST rate settings
+  const [cgstRate, setCgstRate] = useState<number>(9)
+  const [sgstRate, setSgstRate] = useState<number>(9)
+  const [isProductSelectorOpen, setIsProductSelectorOpen] = useState(false)
+
   // New client form state
   const [isNewClientDialogOpen, setIsNewClientDialogOpen] = useState(false)
   const [newClientName, setNewClientName] = useState("")
@@ -100,11 +118,11 @@ export function CreateInvoiceForm() {
 
   // Product templates for quick addition
   const productTemplates = [
-    { name: "Web Design", description: "Professional website design services", price: 1500 },
-    { name: "Logo Design", description: "Custom logo design with revisions", price: 500 },
-    { name: "Consulting", description: "Professional consulting services (hourly)", price: 150 },
-    { name: "Development", description: "Software development services", price: 2000 },
-    { name: "Maintenance", description: "Monthly website maintenance", price: 250 },
+    { name: "Web Design", description: "Professional website design services", price: 1500, taxable: true },
+    { name: "Logo Design", description: "Custom logo design with revisions", price: 500, taxable: true },
+    { name: "Consulting", description: "Professional consulting services (hourly)", price: 150, taxable: true },
+    { name: "Development", description: "Software development services", price: 2000, taxable: true },
+    { name: "Maintenance", description: "Monthly website maintenance", price: 250, taxable: true },
   ]
 
   // Fetch clients on component mount
@@ -135,6 +153,7 @@ export function CreateInvoiceForm() {
         description: "",
         quantity: 1,
         price: 0,
+        taxable: true,
       },
     ])
   }
@@ -147,8 +166,23 @@ export function CreateInvoiceForm() {
         description: `${template.name}: ${template.description}`,
         quantity: 1,
         price: template.price,
+        taxable: template.taxable,
       },
     ])
+  }
+
+  const handleAddProduct = (product: Product) => {
+    setLineItems([
+      ...lineItems,
+      {
+        id: `item-${Date.now()}`,
+        description: `${product.name}: ${product.description}`,
+        quantity: 1,
+        price: product.price,
+        taxable: product.taxable,
+      },
+    ])
+    setIsProductSelectorOpen(false)
   }
 
   const handleRemoveLineItem = (id: string) => {
@@ -157,12 +191,28 @@ export function CreateInvoiceForm() {
     }
   }
 
-  const handleLineItemChange = (id: string, field: keyof LineItem, value: string | number) => {
+  const handleLineItemChange = (id: string, field: keyof LineItem, value: string | number | boolean) => {
     setLineItems(lineItems.map((item) => (item.id === id ? { ...item, [field]: value } : item)))
   }
 
   const calculateSubtotal = () => {
     return lineItems.reduce((sum, item) => sum + item.quantity * item.price, 0)
+  }
+
+  const calculateTaxableAmount = () => {
+    return lineItems.filter((item) => item.taxable).reduce((sum, item) => sum + item.quantity * item.price, 0)
+  }
+
+  const calculateCGST = () => {
+    return calculateTaxableAmount() * (cgstRate / 100)
+  }
+
+  const calculateSGST = () => {
+    return calculateTaxableAmount() * (sgstRate / 100)
+  }
+
+  const calculateTotal = () => {
+    return calculateSubtotal() + calculateCGST() + calculateSGST()
   }
 
   const handleLogoUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -302,7 +352,7 @@ export function CreateInvoiceForm() {
       // Create invoice
       const invoiceData = {
         clientId: clientId,
-        totalAmount: calculateSubtotal(),
+        totalAmount: calculateTotal(),
         dueDate: dueDate.toISOString(),
         lineItems: validLineItems.map(({ id, ...item }) => item), // Remove the id property
         // If using a new client without saving to DB, include client info
@@ -316,6 +366,13 @@ export function CreateInvoiceForm() {
               },
             }
           : {}),
+        taxInfo: {
+          cgstRate,
+          sgstRate,
+          cgstAmount: calculateCGST(),
+          sgstAmount: calculateSGST(),
+          taxableAmount: calculateTaxableAmount(),
+        },
       }
 
       const result = await apiHandler(() => invoicesAPI.create(invoiceData), {
@@ -613,9 +670,18 @@ export function CreateInvoiceForm() {
                         <DropdownMenuSeparator />
                         {productTemplates.map((template, index) => (
                           <DropdownMenuItem key={index} onClick={() => handleAddProductTemplate(template)}>
-                            {template.name} - ${template.price}
+                            {template.name} - ₹{template.price}
                           </DropdownMenuItem>
                         ))}
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem onClick={() => setIsProductSelectorOpen(true)}>
+                          <span className="flex items-center">Browse All Products</span>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem asChild>
+                          <Link href="/dashboard/products" className="flex items-center">
+                            Manage Products <ExternalLink className="ml-2 h-3 w-3" />
+                          </Link>
+                        </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
                     <Button variant="outline" size="sm" onClick={handleAddLineItem}>
@@ -631,6 +697,7 @@ export function CreateInvoiceForm() {
                         <th className="text-right p-3 font-medium w-24">Quantity</th>
                         <th className="text-right p-3 font-medium w-32">Price</th>
                         <th className="text-right p-3 font-medium w-32">Amount</th>
+                        <th className="text-center p-3 font-medium w-24">Taxable</th>
                         <th className="p-3 w-16"></th>
                       </tr>
                     </thead>
@@ -667,7 +734,13 @@ export function CreateInvoiceForm() {
                               className="text-right"
                             />
                           </td>
-                          <td className="p-3 text-right">${(item.quantity * item.price).toFixed(2)}</td>
+                          <td className="p-3 text-right">₹{(item.quantity * item.price).toFixed(2)}</td>
+                          <td className="p-3 text-center">
+                            <Switch
+                              checked={item.taxable}
+                              onCheckedChange={(checked) => handleLineItemChange(item.id, "taxable", checked)}
+                            />
+                          </td>
                           <td className="p-3 text-center">
                             <Button
                               variant="ghost"
@@ -686,8 +759,49 @@ export function CreateInvoiceForm() {
                         <td colSpan={3} className="p-3 text-right font-medium">
                           Subtotal:
                         </td>
-                        <td className="p-3 text-right font-medium">${calculateSubtotal().toFixed(2)}</td>
-                        <td></td>
+                        <td className="p-3 text-right font-medium">₹{calculateSubtotal().toFixed(2)}</td>
+                        <td colSpan={2}></td>
+                      </tr>
+                      <tr>
+                        <td colSpan={3} className="p-3 text-right font-medium">
+                          <div className="flex items-center justify-end gap-2">
+                            <span>CGST ({cgstRate}%):</span>
+                            <Input
+                              type="number"
+                              min="0"
+                              max="50"
+                              value={cgstRate}
+                              onChange={(e) => setCgstRate(Number(e.target.value))}
+                              className="w-16 text-right"
+                            />
+                          </div>
+                        </td>
+                        <td className="p-3 text-right font-medium">₹{calculateCGST().toFixed(2)}</td>
+                        <td colSpan={2}></td>
+                      </tr>
+                      <tr>
+                        <td colSpan={3} className="p-3 text-right font-medium">
+                          <div className="flex items-center justify-end gap-2">
+                            <span>SGST ({sgstRate}%):</span>
+                            <Input
+                              type="number"
+                              min="0"
+                              max="50"
+                              value={sgstRate}
+                              onChange={(e) => setSgstRate(Number(e.target.value))}
+                              className="w-16 text-right"
+                            />
+                          </div>
+                        </td>
+                        <td className="p-3 text-right font-medium">₹{calculateSGST().toFixed(2)}</td>
+                        <td colSpan={2}></td>
+                      </tr>
+                      <tr>
+                        <td colSpan={3} className="p-3 text-right font-medium">
+                          Total:
+                        </td>
+                        <td className="p-3 text-right font-bold text-lg">₹{calculateTotal().toFixed(2)}</td>
+                        <td colSpan={2}></td>
                       </tr>
                     </tfoot>
                   </table>
@@ -896,11 +1010,29 @@ export function CreateInvoiceForm() {
               dueDate,
               lineItems,
               notes,
+              taxInfo: {
+                cgstRate,
+                sgstRate,
+                cgstAmount: calculateCGST(),
+                sgstAmount: calculateSGST(),
+                taxableAmount: calculateTaxableAmount(),
+              },
             }}
             onEditClick={() => setActiveTab("details")}
           />
         </TabsContent>
       </Tabs>
+
+      {/* Product Selector Dialog */}
+      <Dialog open={isProductSelectorOpen} onOpenChange={setIsProductSelectorOpen}>
+        <DialogContent className="sm:max-w-[600px]">
+          <DialogHeader>
+            <DialogTitle>Select Product</DialogTitle>
+            <DialogDescription>Choose a product from your catalog to add to the invoice</DialogDescription>
+          </DialogHeader>
+          <ProductSelector onSelectProduct={handleAddProduct} />
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

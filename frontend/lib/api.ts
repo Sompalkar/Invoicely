@@ -90,6 +90,37 @@ export const clientsAPI = {
   },
 }
 
+// Products API
+export const productsAPI = {
+  getAll: async () => {
+    return fetchWithAuth("/products")
+  },
+
+  getById: async (id: string) => {
+    return fetchWithAuth(`/products/${id}`)
+  },
+
+  create: async (productData: { name: string; description: string; price: number; taxable: boolean }) => {
+    return fetchWithAuth("/products", {
+      method: "POST",
+      body: JSON.stringify(productData),
+    })
+  },
+
+  update: async (id: string, productData: { name: string; description: string; price: number; taxable: boolean }) => {
+    return fetchWithAuth(`/products/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(productData),
+    })
+  },
+
+  delete: async (id: string) => {
+    return fetchWithAuth(`/products/${id}`, {
+      method: "DELETE",
+    })
+  },
+}
+
 // Invoices API
 export const invoicesAPI = {
   getAll: async (filters = {}) => {
@@ -109,7 +140,14 @@ export const invoicesAPI = {
     clientId: string
     totalAmount: number
     dueDate: string
-    lineItems: Array<{ item?: string; description: string; quantity: number; price: number }>
+    lineItems: Array<{ description: string; quantity: number; price: number; taxable: boolean }>
+    taxInfo?: {
+      cgstRate: number
+      sgstRate: number
+      cgstAmount: number
+      sgstAmount: number
+      taxableAmount: number
+    }
   }) => {
     return fetchWithAuth("/invoices", {
       method: "POST",

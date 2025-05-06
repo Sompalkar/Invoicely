@@ -28,6 +28,11 @@ export function DashboardNav() {
       icon: FileText,
       title: "Create Invoice",
     },
+    {
+      href: "/dashboard/products",
+      icon: FileText,
+      title: "Add Products",
+    },
     
   ]
 
