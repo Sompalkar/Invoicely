@@ -40,6 +40,8 @@ import { Switch } from "@/components/ui/switch"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { InvoicePreview } from "@/components/invoice-preview"
 import { ProductSelector } from "@/components/product-selector"
+
+import { PdfGenerator } from "@/components/pdf-generator"
 import Link from "next/link"
 
 interface Client {
@@ -115,6 +117,7 @@ export function CreateInvoiceForm() {
   const [newClientPhone, setNewClientPhone] = useState("")
   const [newClientAddress, setNewClientAddress] = useState("")
   const [isSubmittingClient, setIsSubmittingClient] = useState(false)
+  const previewRef = useRef<HTMLDivElement>(null)
 
   // Product templates for quick addition
   const productTemplates = [
@@ -960,7 +963,7 @@ export function CreateInvoiceForm() {
               <Button variant="outline" onClick={() => router.push("/dashboard")}>
                 Cancel
               </Button>
-              <Button variant="default" onClick={() => handleSubmit("save")} disabled={isLoading}>
+              <Button variant="default"   disabled={isLoading}>
                 {isLoading ? (
                   <span className="flex items-center">
                     <LoadingSpinner size="sm" className="mr-2" />
@@ -969,14 +972,15 @@ export function CreateInvoiceForm() {
                 ) : (
                   <span className="flex items-center">
                     <FileText className="mr-2 h-4 w-4" />
-                    Save Invoice
+                    Save Invoice (Soon...)
                   </span>
                 )}
               </Button>
+              <PdfGenerator contentRef={previewRef} fileName="invoice" />
               <Button
                 variant="default"
                 className="bg-purple-600 hover:bg-purple-700"
-                onClick={() => handleSubmit("send")}
+                
                 disabled={isLoading}
               >
                 {isLoading ? (
@@ -987,7 +991,7 @@ export function CreateInvoiceForm() {
                 ) : (
                   <span className="flex items-center">
                     <Send className="mr-2 h-4 w-4" />
-                    Save & Send
+                    Save & Send (Soon...)
                   </span>
                 )}
               </Button>
@@ -1033,6 +1037,35 @@ export function CreateInvoiceForm() {
           <ProductSelector onSelectProduct={handleAddProduct} />
         </DialogContent>
       </Dialog>
-    </div>
+      <div className="absolute -left-[9999px]">
+  <div ref={previewRef}>
+    <InvoicePreview
+      invoiceData={{
+        companyName,
+        companyAddress,
+        companyLogo,
+        companySignature,
+        companyGst,
+        companyPan,
+        clientMode,
+        selectedClientData,
+        tempClient,
+        dueDate,
+        lineItems,
+        notes,
+        taxInfo: {
+          cgstRate,
+          sgstRate,
+          cgstAmount: calculateCGST(),
+          sgstAmount: calculateSGST(),
+          taxableAmount: calculateTaxableAmount(),
+        },
+      }}
+      onEditClick={() => setActiveTab("details")}
+    />
+  </div>
+</div>
+
+</div>
   )
 }

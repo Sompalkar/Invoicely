@@ -41,11 +41,12 @@ export default function RegisterPage() {
     try {
       const success = await register(username, email, password)
       if (success) {
+        
+        router.push("/dashboard")
         toast({
           title: "Registration successful",
           description: "Welcome to Invoicely!",
         })
-        router.push("/dashboard")
       } else {
         toast({
           title: "Registration failed",

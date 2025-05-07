@@ -12,8 +12,11 @@ import { Overview } from "@/components/overview"
 import { RecentActivity } from "@/components/recent-activity"
 import { FileText, Plus, Users, BarChart4 } from "lucide-react"
 
+import { useRouter } from "next/navigation"
+
 export default function DashboardPage() {
   const [activeTab, setActiveTab] = useState("overview")
+  const router = useRouter()
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -25,7 +28,7 @@ export default function DashboardPage() {
             <div className="flex items-center justify-between">
               <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
               <div className="flex items-center gap-2">
-                <Button className="bg-purple-600 hover:bg-purple-700">
+                <Button className="bg-purple-600 hover:bg-purple-700" onClick={() => router.push("/dashboard/invoices/create")}>
                   <Plus className="mr-2 h-4 w-4" />
                   New Invoice
                 </Button>
