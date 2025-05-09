@@ -1,111 +1,117 @@
-"use client"
+"use client";
 
-import Link from "next/link"
-import { usePathname, useRouter } from "next/navigation"
-import { cn } from "@/lib/utils"
-import { Button } from "@/components/ui/button"
-import { FileText, Users, BarChart4, HelpCircle, ChevronLeft, ChevronRight, Plus } from "lucide-react"
-import { useState } from "react"
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { cn } from "@/lib/utils";
+import {
+  LayoutDashboard,
+  FileText,
+  Users,
+  ShoppingBag,
+  BarChart,
+  Settings,
+  HelpCircle,
+  ChevronRight,
+  User,
+} from "lucide-react";
+import { motion } from "framer-motion";
+import { useState } from "react";
+
+const navItems = [
+  {
+    title: "Dashboard",
+    href: "/dashboard",
+    icon: LayoutDashboard,
+  },
+  {
+    title: "Invoices",
+    href: "/dashboard/invoices/create",
+    icon: FileText,
+  },
+  {
+    title: "Clients",
+    href: "/dashboard/clients",
+    icon: Users,
+  },
+  {
+    title: "Products",
+    href: "/dashboard/products",
+    icon: ShoppingBag,
+  },
+
+  {
+    title: "Profile",
+    href: "/dashboard/profile",
+    icon: User,
+  },
+  {
+    title: "Help",
+    href: "/dashboard",
+    icon: HelpCircle,
+  },
+];
 
 export function DashboardNav() {
-  const pathname = usePathname()
-  const router = useRouter()
-  const [isCollapsed, setIsCollapsed] = useState(false)
-
-  const routes = [
-    {
-      href: "/dashboard",
-      icon: BarChart4,
-      title: "Dashboard",
-    },
-    {
-      href: "/dashboard/clients",
-      icon: Users,
-      title: "Add Client",
-    },
-    {
-      href: "/dashboard/invoices/create",
-      icon: FileText,
-      title: "Create Invoice",
-    },
-    {
-      href: "/dashboard/products",
-      icon: FileText,
-      title: "Add Products",
-    },
-    
-  ]
-
-  const handleCreateInvoice = () => {
-    router.push("/dashboard/invoices/create")
-  }
+  const pathname = usePathname();
+  const [isCollapsed, setIsCollapsed] = useState(false);
 
   return (
-    <div
+    <motion.div
+      initial={{ width: 240 }}
+      animate={{ width: isCollapsed ? 80 : 240 }}
       className={cn(
-        "group border-r bg-muted/40 transition-all duration-300 ease-in-out relative",
-        isCollapsed ? "w-[70px]" : "w-[240px]",
+        "h-screen sticky top-0 border-r bg-white/50 dark:bg-gray-950/50 backdrop-blur-sm overflow-hidden",
+        isCollapsed ? "w-20" : "w-60"
       )}
     >
-      <div className="absolute right-[-12px] top-6 z-10">
-        <Button
-          variant="outline"
-          size="icon"
-          className="h-6 w-6 rounded-full bg-background"
-          onClick={() => setIsCollapsed(!isCollapsed)}
-        >
-          {isCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
-          <span className="sr-only">Toggle navigation</span>
-        </Button>
-      </div>
       <div className="flex flex-col h-full">
-        <nav className="flex flex-col gap-2 p-4">
-          {!isCollapsed && (
-            <Button className="w-full mb-2 bg-purple-600 hover:bg-purple-700" onClick={handleCreateInvoice}>
-              <Plus className="mr-2 h-4 w-4" />
-              New Invoice
-            </Button>
-          )}
-          {isCollapsed && (
-            <Button variant="ghost" size="icon" className="mb-2 mx-auto" onClick={handleCreateInvoice}>
-              <Plus className="h-5 w-5 text-purple-600" />
-              <span className="sr-only">New Invoice</span>
-            </Button>
-          )}
-          {routes.map((route) => (
-            <Link
-              key={route.href}
-              href={route.href}
-              className={cn(
-                "flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground transition-all hover:text-foreground",
-                pathname === route.href && "bg-muted text-foreground",
-                isCollapsed && "justify-center px-2",
-              )}
+        <div className="flex justify-end p-2">
+          <button
+            onClick={() => setIsCollapsed(!isCollapsed)}
+            className="p-2 rounded-full hover:bg-purple-100 dark:hover:bg-purple-900/30 transition-colors"
+          >
+            <motion.div
+              animate={{ rotate: isCollapsed ? 180 : 0 }}
+              transition={{ duration: 0.3 }}
             >
-              <route.icon className={cn("h-5 w-5", pathname === route.href && "text-purple-600")} />
-              {!isCollapsed && <span>{route.title}</span>}
-            </Link>
-          ))}
-        </nav>
-        <div className="mt-auto p-4">
-          <div className={cn("rounded-lg bg-muted p-4", isCollapsed && "flex justify-center p-2")}>
-            {!isCollapsed ? (
-              <>
-                <h4 className="mb-2 font-medium">Need help?</h4>
-                <p className="mb-4 text-sm text-muted-foreground">Check our documentation or contact support</p>
-                <Button asChild variant="outline" className="w-full">
-                  <Link href="/help">
-                    <HelpCircle className="mr-2 h-4 w-4" />
-                    Help Center
-                  </Link>
-                </Button>
-              </>
-            ) : (
-              <HelpCircle className="h-5 w-5 text-muted-foreground" />
-            )}
-          </div>
+              <ChevronRight className="h-4 w-4 text-purple-600" />
+            </motion.div>
+          </button>
         </div>
+        <nav className="flex-1 px-2 py-4">
+          <ul className="space-y-2">
+            {navItems.map((item) => (
+              <li key={item.title}>
+                <Link href={item.href}>
+                  <motion.div
+                    whileHover={{ x: 5 }}
+                    whileTap={{ scale: 0.95 }}
+                    className={cn(
+                      "flex items-center px-3 py-2 rounded-lg transition-colors",
+                      pathname === item.href ||
+                        pathname.startsWith(`${item.href}/`)
+                        ? "bg-gradient-to-r from-purple-500/10 to-violet-500/10 text-purple-700 dark:text-purple-300"
+                        : "hover:bg-purple-100 dark:hover:bg-purple-900/30 text-gray-700 dark:text-gray-300"
+                    )}
+                  >
+                    <item.icon
+                      className={cn(
+                        "h-5 w-5 mr-3",
+                        pathname === item.href ||
+                          pathname.startsWith(`${item.href}/`)
+                          ? "text-purple-600"
+                          : "text-gray-500 dark:text-gray-400"
+                      )}
+                    />
+                    {!isCollapsed && <span>{item.title}</span>}
+                  </motion.div>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </nav>
+        
       </div>
-    </div>
-  )
+    </motion.div>
+  );
 }

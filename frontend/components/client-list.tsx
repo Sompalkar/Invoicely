@@ -30,6 +30,8 @@ import {
 } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
+import { useAuth } from "@/contexts/auth-context"
+import { motion, AnimatePresence } from "framer-motion"
 
 interface Client {
   _id: string
@@ -41,6 +43,7 @@ interface Client {
 
 export function ClientList() {
   const router = useRouter()
+  const { user } = useAuth()
   const [searchQuery, setSearchQuery] = useState("")
   const [clients, setClients] = useState<Client[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -156,22 +159,27 @@ export function ClientList() {
   }
 
   return (
-    <div className="space-y-4">
+    <motion.div className="space-y-6" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.5 }}>
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="relative">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
             type="search"
             placeholder="Search clients..."
-            className="pl-8 w-full sm:w-[300px]"
+            className="pl-8 w-full sm:w-[300px] border-purple-100 dark:border-purple-800/30 focus-visible:ring-purple-500"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
         </div>
-        <Button className="bg-purple-600 hover:bg-purple-700" onClick={() => handleOpenDialog()}>
-          <Plus className="mr-2 h-4 w-4" />
-          Add Client
-        </Button>
+        <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+          <Button
+            className="bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-700 hover:to-violet-700 shadow-md shadow-purple-500/20"
+            onClick={() => router.push("/dashboard/clients/add")}
+          >
+            <Plus className="mr-2 h-4 w-4" />
+            Add Client
+          </Button>
+        </motion.div>
       </div>
 
       {isLoading ? (
@@ -179,9 +187,14 @@ export function ClientList() {
           <LoadingSpinner size="lg" />
         </div>
       ) : (
-        <div className="rounded-md border">
+        <motion.div
+          className="rounded-lg border border-purple-100 dark:border-purple-800/30 shadow-lg shadow-purple-500/5 overflow-hidden bg-white dark:bg-gray-950"
+          initial={{ y: 20, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ duration: 0.5, delay: 0.2 }}
+        >
           <Table>
-            <TableHeader>
+            <TableHeader className="bg-gradient-to-r from-purple-50 to-violet-50 dark:from-purple-950/50 dark:to-violet-950/50">
               <TableRow>
                 <TableHead>Client</TableHead>
                 <TableHead>Email</TableHead>
@@ -191,70 +204,89 @@ export function ClientList() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredClients.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
-                    No clients found. Try a different search or add a new client.
-                  </TableCell>
-                </TableRow>
-              ) : (
-                filteredClients.map((client) => (
-                  <TableRow key={client._id}>
-                    <TableCell>
-                      <div className="flex items-center gap-3">
-                        <Avatar className="h-9 w-9">
-                          <AvatarImage src={`/placeholder.svg?height=36&width=36`} alt={client.name} />
-                          <AvatarFallback className="bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200">
-                            {getInitials(client.name)}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div>
-                          <p className="font-medium">{client.name}</p>
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell>{client.email}</TableCell>
-                    <TableCell>{client.phone || "-"}</TableCell>
-                    <TableCell className="max-w-[200px] truncate">{client.address || "-"}</TableCell>
-                    <TableCell className="text-right">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon">
-                            <MoreHorizontal className="h-4 w-4" />
-                            <span className="sr-only">Actions</span>
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem onClick={() => handleOpenDialog(client)}>
-                            <Edit className="mr-2 h-4 w-4" />
-                            Edit
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => router.push("/dashboard/invoices/create")}>
-                            <FileText className="mr-2 h-4 w-4" />
-                            New Invoice
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem className="text-red-600" onClick={() => handleDeleteClient(client._id)}>
-                            <Trash className="mr-2 h-4 w-4" />
-                            Delete
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+              <AnimatePresence>
+                {filteredClients.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                        No clients found. Try a different search or add a new client.
+                      </motion.div>
                     </TableCell>
                   </TableRow>
-                ))
-              )}
+                ) : (
+                  filteredClients.map((client, index) => (
+                    <motion.tr
+                      key={client._id}
+                      className="hover:bg-purple-50/50 dark:hover:bg-purple-900/10"
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: index * 0.05, duration: 0.3 }}
+                      exit={{ opacity: 0, y: -10 }}
+                    >
+                      <TableCell>
+                        <div className="flex items-center gap-3">
+                          <Avatar className="h-9 w-9 border border-purple-100 dark:border-purple-800/30">
+                            <AvatarImage src={`/placeholder.svg?height=36&width=36`} alt={client.name} />
+                            <AvatarFallback className="bg-gradient-to-br from-purple-500 to-violet-600 text-white">
+                              {getInitials(client.name)}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div>
+                            <p className="font-medium">{client.name}</p>
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell>{client.email}</TableCell>
+                      <TableCell>{client.phone || "-"}</TableCell>
+                      <TableCell className="max-w-[200px] truncate">{client.address || "-"}</TableCell>
+                      <TableCell className="text-right">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="hover:bg-purple-100 dark:hover:bg-purple-900/30"
+                            >
+                              <MoreHorizontal className="h-4 w-4" />
+                              <span className="sr-only">Actions</span>
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="border-purple-100 dark:border-purple-800/30">
+                            <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem onClick={() => router.push(`/dashboard/clients/edit/${client._id}`)}>
+                              <Edit className="mr-2 h-4 w-4" />
+                              Edit
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => router.push(`/dashboard/invoices/create?client=${client._id}`)}
+                            >
+                              <FileText className="mr-2 h-4 w-4" />
+                              New Invoice
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem className="text-red-600" onClick={() => handleDeleteClient(client._id)}>
+                              <Trash className="mr-2 h-4 w-4" />
+                              Delete
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TableCell>
+                    </motion.tr>
+                  ))
+                )}
+              </AnimatePresence>
             </TableBody>
           </Table>
-        </div>
+        </motion.div>
       )}
 
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="sm:max-w-[500px]">
+        <DialogContent className="sm:max-w-[500px] border-purple-100 dark:border-purple-800/30">
           <DialogHeader>
-            <DialogTitle>{editingClient ? "Edit Client" : "Add New Client"}</DialogTitle>
+            <DialogTitle className="text-purple-800 dark:text-purple-200">
+              {editingClient ? "Edit Client" : "Add New Client"}
+            </DialogTitle>
             <DialogDescription>
               {editingClient
                 ? "Update the client's information below."
@@ -271,6 +303,7 @@ export function ClientList() {
                   onChange={(e) => setName(e.target.value)}
                   placeholder="John Doe"
                   required
+                  className="border-purple-100 dark:border-purple-800/30 focus-visible:ring-purple-500"
                 />
               </div>
               <div className="grid gap-2">
@@ -282,6 +315,7 @@ export function ClientList() {
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="john@example.com"
                   required
+                  className="border-purple-100 dark:border-purple-800/30 focus-visible:ring-purple-500"
                 />
               </div>
               <div className="grid gap-2">
@@ -291,6 +325,7 @@ export function ClientList() {
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
                   placeholder="+1 (555) 123-4567"
+                  className="border-purple-100 dark:border-purple-800/30 focus-visible:ring-purple-500"
                 />
               </div>
               <div className="grid gap-2">
@@ -301,14 +336,24 @@ export function ClientList() {
                   onChange={(e) => setAddress(e.target.value)}
                   placeholder="123 Main St, Anytown, USA"
                   rows={3}
+                  className="border-purple-100 dark:border-purple-800/30 focus-visible:ring-purple-500"
                 />
               </div>
             </div>
             <DialogFooter>
-              <Button variant="outline" type="button" onClick={handleCloseDialog}>
+              <Button
+                variant="outline"
+                type="button"
+                onClick={handleCloseDialog}
+                className="border-purple-100 dark:border-purple-800/30 hover:bg-purple-50 dark:hover:bg-purple-900/20"
+              >
                 Cancel
               </Button>
-              <Button type="submit" disabled={isSubmitting}>
+              <Button
+                type="submit"
+                disabled={isSubmitting}
+                className="bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-700 hover:to-violet-700"
+              >
                 {isSubmitting ? (
                   <span className="flex items-center">
                     <LoadingSpinner size="sm" className="mr-2" />
@@ -322,6 +367,6 @@ export function ClientList() {
           </form>
         </DialogContent>
       </Dialog>
-    </div>
+    </motion.div>
   )
 }

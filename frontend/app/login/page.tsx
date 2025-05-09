@@ -1,167 +1,137 @@
-"use client";
+"use client"
 
-import type React from "react";
+import type React from "react"
 
-import { useState } from "react";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Checkbox } from "@/components/ui/checkbox";
-import { FileText, ArrowLeft } from "lucide-react";
-import { motion } from "framer-motion";
-import { useAuth } from "@/contexts/auth-context";
-import { toast } from "@/components/ui/use-toast";
-import { LoadingSpinner } from "@/components/loading-spinner";
+import { useState } from "react"
+import Link from "next/link"
+import { useRouter } from "next/navigation"
+import { useAuth } from "@/contexts/auth-context"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import { LoadingSpinner } from "@/components/loading-spinner"
+import { FcGoogle } from "react-icons/fc"
 
 export default function LoginPage() {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [rememberMe, setRememberMe] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const { login } = useAuth();
-  const router = useRouter();
+  const [email, setEmail] = useState("")
+  const [password, setPassword] = useState("")
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [error, setError] = useState("")
+  const { login, loginWithGoogle } = useAuth()
+  const router = useRouter()
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsSubmitting(true);
+    e.preventDefault()
+    setError("")
+    setIsSubmitting(true)
 
     try {
-      const response = await login(email, password);
-      console.log(response);
-      if (response) {
-        router.push("/dashboard");
-
-        toast({
-          title: "Login successful",
-          description: "Welcome back to Invoicely!",
-        });
+      const success = await login(email, password)
+      if (success) {
+        router.push("/dashboard")
       } else {
-        toast({
-          title: "Login failed",
-          description: "Invalid email or password. Please try again.",
-          variant: "destructive",
-        });
+        setError("Invalid email or password")
       }
-    } catch (error) {
-      toast({
-        title: "Login failed",
-        description: "An error occurred. Please try again.",
-        variant: "destructive",
-      });
+    } catch (err) {
+      setError("An error occurred. Please try again.")
     } finally {
-      setIsSubmitting(false);
+      setIsSubmitting(false)
     }
-  };
+  }
+
+  const handleGoogleLogin = async () => {
+    try {
+      await loginWithGoogle()
+    } catch (err) {
+      setError("Google login failed. Please try again.")
+    }
+  }
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-muted/30 p-4">
-      <Link
-        href="/"
-        className="absolute top-8 left-8 flex items-center text-muted-foreground hover:text-foreground transition-colors"
-      >
-        <ArrowLeft className="mr-2 h-4 w-4" />
-        Back to home
-      </Link>
-
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-      >
-        <Card className="w-full max-w-md">
-          <CardHeader className="space-y-1">
-            <div className="flex justify-center mb-4">
-              <FileText className="h-10 w-10 text-purple-600" />
+    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-purple-50 to-indigo-50 dark:from-gray-900 dark:to-gray-800 p-4">
+      <Card className="w-full max-w-md shadow-lg border-purple-100 dark:border-gray-700">
+        <CardHeader className="space-y-1 text-center">
+          <CardTitle className="text-2xl font-bold tracking-tight text-purple-700 dark:text-purple-400">
+            Welcome back
+          </CardTitle>
+          <CardDescription>Enter your credentials to access your account</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="email">Email</Label>
+              <Input
+                id="email"
+                type="email"
+                placeholder="name@example.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                className="border-purple-200 focus:border-purple-400 dark:border-gray-600"
+              />
             </div>
-            <CardTitle className="text-2xl text-center">Welcome back</CardTitle>
-            <CardDescription className="text-center">
-              Sign in to your Invoicely account
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit}>
-              <div className="grid gap-4">
-                <div className="grid gap-2">
-                  <Label htmlFor="email">Email</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    placeholder="john@example.com"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    required
-                  />
-                </div>
-                <div className="grid gap-2">
-                  <div className="flex items-center justify-between">
-                    <Label htmlFor="password">Password</Label>
-                    <Link
-                      href="/forgot-password"
-                      className="text-sm text-purple-600 hover:underline"
-                    >
-                      Forgot password?
-                    </Link>
-                  </div>
-                  <Input
-                    id="password"
-                    type="password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    required
-                  />
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="remember"
-                    checked={rememberMe}
-                    onCheckedChange={(checked) =>
-                      setRememberMe(checked as boolean)
-                    }
-                  />
-                  <Label htmlFor="remember" className="text-sm font-normal">
-                    Remember me
-                  </Label>
-                </div>
-                <Button
-                  className="w-full bg-purple-600 hover:bg-purple-700"
-                  type="submit"
-                  disabled={isSubmitting}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label htmlFor="password">Password</Label>
+                <Link
+                  href="/forgot-password"
+                  className="text-sm text-purple-600 hover:text-purple-800 dark:text-purple-400 dark:hover:text-purple-300"
                 >
-                  {isSubmitting ? (
-                    <span className="flex items-center">
-                      <LoadingSpinner size="sm" className="mr-2" />
-                      Signing in...
-                    </span>
-                  ) : (
-                    "Sign in"
-                  )}
-                </Button>
+                  Forgot password?
+                </Link>
               </div>
-            </form>
-          </CardContent>
-          <CardFooter>
-            <div className="text-center text-sm text-muted-foreground w-full">
-              Don&apos;t have an account?{" "}
-              <Link
-                href="/register"
-                className="text-purple-600 hover:underline"
-              >
-                Sign up
-              </Link>
+              <Input
+                id="password"
+                type="password"
+                placeholder="••••••••"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                className="border-purple-200 focus:border-purple-400 dark:border-gray-600"
+              />
             </div>
-          </CardFooter>
-        </Card>
-      </motion.div>
+            {error && <p className="text-sm font-medium text-red-500">{error}</p>}
+            <Button
+              type="submit"
+              className="w-full bg-purple-600 hover:bg-purple-700 text-white"
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? <LoadingSpinner size="sm" /> : "Sign In"}
+            </Button>
+          </form>
+
+          <div className="relative">
+            <div className="absolute inset-0 flex items-center">
+              <span className="w-full border-t border-gray-300 dark:border-gray-600"></span>
+            </div>
+            <div className="relative flex justify-center text-xs uppercase">
+              <span className="bg-white dark:bg-gray-800 px-2 text-gray-500 dark:text-gray-400">Or continue with</span>
+            </div>
+          </div>
+
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full border-purple-200 hover:bg-purple-50 dark:border-gray-600 dark:hover:bg-gray-700 flex items-center justify-center gap-2"
+            onClick={handleGoogleLogin}
+          >
+            <FcGoogle className="h-5 w-5" />
+            <span>Sign in with Google</span>
+          </Button>
+        </CardContent>
+        <CardFooter className="flex justify-center">
+          <p className="text-sm text-gray-600 dark:text-gray-400">
+            Don't have an account?{" "}
+            <Link
+              href="/register"
+              className="font-medium text-purple-600 hover:text-purple-800 dark:text-purple-400 dark:hover:text-purple-300"
+            >
+              Sign up
+            </Link>
+          </p>
+        </CardFooter>
+      </Card>
     </div>
-  );
+  )
 }

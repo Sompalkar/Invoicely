@@ -1,227 +1,107 @@
+import axios from "axios"
 import { toast } from "@/components/ui/use-toast"
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api"
+// Create axios instance
+const api = axios.create({
+  withCredentials: true, // Important for cookies
+})
 
-// Helper function for API requests
- 
+// API handler with error handling and toast notifications
+export const apiHandler = async <T>(
+  apiCall: () => Promise<T>,
+  options: {
+    successMessage?: string
+    errorMessage?: string
+    showSuccessToast?: boolean
+    showErrorToast?: boolean
+} =
+{
+}
+): Promise<T> =>
+{
+  const { successMessage, errorMessage = "An error occurred", showSuccessToast = true, showErrorToast = true } = options
 
+  try {
+    const response = await apiCall()
 
+    if (successMessage && showSuccessToast) {
+      toast({
+        title: "Success",
+        description: successMessage,
+      })
+    }
 
+    return response
+  } catch (error: any) {
+    const message = error.response?.data?.message || errorMessage
 
-async function fetchWithAuth(url: string, options: RequestInit = {}) {
-  const response = await fetch(`${API_URL}${url}`, {
-    credentials: 'include',        // send/receive cookies
-    headers: { "Content-Type": "application/json" },
-    ...options,
-  })
+    if (showErrorToast) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: message,
+      })
+    }
 
-  if (!response.ok) {
-    const err = await response.json().catch(() => ({}))
-    throw new Error(err.message || `${response.status} ${response.statusText}`)
+    throw error
   }
-
-  // Return null for 204 No Content
-  return response.status === 204 ? null : response.json()
 }
 
-
-
-
-
+// Auth API
 export const authAPI = {
   register: (data: { username: string; email: string; password: string }) =>
-    fetchWithAuth('/auth/register', { method: 'POST', body: JSON.stringify(data) }),
+    api.post("/api/auth/register", data).then((res) => res.data),
 
-  login: (data: { email: string; password: string }) =>
-    fetchWithAuth('/auth/login', { method: 'POST', body: JSON.stringify(data) }),
+  login: (data: { email: string; password: string }) => api.post("/api/auth/login", data).then((res) => res.data),
 
-  logout: () =>
-    fetchWithAuth('/auth/logout', { method: 'POST' }),
+  logout: () => api.post("/api/auth/logout").then((res) => res.data),
 
-  getCurrentUser: () =>
-    fetchWithAuth('/auth/me')
+  getCurrentUser: () => api.get("/api/auth/me").then((res) => res.data),
+
+  updateProfile: (data: { username?: string; email?: string }) =>
+    api.put("/api/auth/profile", data).then((res) => res.data),
+
+  changePassword: (data: { currentPassword: string; newPassword: string }) =>
+    api.put("/api/auth/password", data).then((res) => res.data),
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 // Clients API
 export const clientsAPI = {
-  getAll: async () => {
-    return fetchWithAuth("/clients")
-  },
+  getAll: () => api.get("/api/clients").then((res) => res.data),
 
-  getById: async (id: string) => {
-    return fetchWithAuth(`/clients/${id}`)
-  },
+  getById: (id: string) => api.get(`/api/clients/${id}`).then((res) => res.data),
 
-  create: async (clientData: { name: string; email: string; address?: string; phone?: string }) => {
-    return fetchWithAuth("/clients", {
-      method: "POST",
-      body: JSON.stringify(clientData),
-    })
-  },
+  create: (data: any) => api.post("/api/clients", data).then((res) => res.data),
 
-  update: async (id: string, clientData: { name: string; email: string; address?: string; phone?: string }) => {
-    return fetchWithAuth(`/clients/${id}`, {
-      method: "PUT",
-      body: JSON.stringify(clientData),
-    })
-  },
+  update: (id: string, data: any) => api.put(`/api/clients/${id}`, data).then((res) => res.data),
 
-  delete: async (id: string) => {
-    return fetchWithAuth(`/clients/${id}`, {
-      method: "DELETE",
-    })
-  },
-}
-
-// Products API
-export const productsAPI = {
-  getAll: async () => {
-    return fetchWithAuth("/products")
-  },
-
-  getById: async (id: string) => {
-    return fetchWithAuth(`/products/${id}`)
-  },
-
-  create: async (productData: { name: string; description: string; price: number; taxable: boolean }) => {
-    return fetchWithAuth("/products", {
-      method: "POST",
-      body: JSON.stringify(productData),
-    })
-  },
-
-  update: async (id: string, productData: { name: string; description: string; price: number; taxable: boolean }) => {
-    return fetchWithAuth(`/products/${id}`, {
-      method: "PUT",
-      body: JSON.stringify(productData),
-    })
-  },
-
-  delete: async (id: string) => {
-    return fetchWithAuth(`/products/${id}`, {
-      method: "DELETE",
-    })
-  },
+  delete: (id: string) => api.delete(`/api/clients/${id}`).then((res) => res.data),
 }
 
 // Invoices API
 export const invoicesAPI = {
-  getAll: async (filters = {}) => {
-    const queryParams = new URLSearchParams()
-    Object.entries(filters).forEach(([key, value]) => {
-      if (value) queryParams.append(key, String(value))
-    })
-    const queryString = queryParams.toString() ? `?${queryParams.toString()}` : ""
-    return fetchWithAuth(`/invoices${queryString}`)
-  },
+  getAll: () => api.get("/api/invoices").then((res) => res.data),
 
-  getById: async (id: string) => {
-    return fetchWithAuth(`/invoices/${id}`)
-  },
+  getById: (id: string) => api.get(`/api/invoices/${id}`).then((res) => res.data),
 
-  create: async (invoiceData: {
-    clientId: string
-    totalAmount: number
-    dueDate: string
-    lineItems: Array<{ description: string; quantity: number; price: number; taxable: boolean }>
-    taxInfo?: {
-      cgstRate: number
-      sgstRate: number
-      cgstAmount: number
-      sgstAmount: number
-      taxableAmount: number
-    }
-  }) => {
-    return fetchWithAuth("/invoices", {
-      method: "POST",
-      body: JSON.stringify(invoiceData),
-    })
-  },
+  create: (data: any) => api.post("/api/invoices", data).then((res) => res.data),
 
-  send: async (id: string) => {
-    return fetchWithAuth(`/invoices/${id}/send`, {
-      method: "POST",
-    })
-  },
+  update: (id: string, data: any) => api.put(`/api/invoices/${id}`, data).then((res) => res.data),
 
-  updateStatus: async (id: string, status: "draft" | "sent" | "paid" | "overdue" | "cancelled") => {
-    return fetchWithAuth(`/invoices/${id}/status`, {
-      method: "PUT",
-      body: JSON.stringify({ status }),
-    })
-  },
+  delete: (id: string) => api.delete(`/api/invoices/${id}`).then((res) => res.data),
 }
 
-// Reports API
-export const reportsAPI = {
-  getRevenue: async (startDate?: string, endDate?: string) => {
-    const queryParams = new URLSearchParams()
-    if (startDate) queryParams.append("startDate", startDate)
-    if (endDate) queryParams.append("endDate", endDate)
-    const queryString = queryParams.toString() ? `?${queryParams.toString()}` : ""
-    return fetchWithAuth(`/reports/revenue${queryString}`)
-  },
+// Products API
+export const productsAPI = {
+  getAll: () => api.get("/api/products").then((res) => res.data),
 
-  getOutstanding: async () => {
-    return fetchWithAuth("/reports/outstanding")
-  },
+  getById: (id: string) => api.get(`/api/products/${id}`).then((res) => res.data),
 
-  getStatusSummary: async () => {
-    return fetchWithAuth("/reports/status-summary")
-  },
+  create: (data: any) => api.post("/api/products", data).then((res) => res.data),
+
+  update: (id: string, data: any) => api.put(`/api/products/${id}`, data).then((res) => res.data),
+
+  delete: (id: string) => api.delete(`/api/products/${id}`).then((res) => res.data),
 }
 
- 
-
-export async function apiHandler<T>(
-  apiCall: () => Promise<T>,
-  { successMessage, errorMessage = "An error occurred", showSuccessToast = true, showErrorToast = true } = {}
-): Promise<T | null> {
-  try {
-    const result = await apiCall()
-    if (successMessage && showSuccessToast) {
-      toast({ title: 'Success', description: successMessage })
-    }
-    return result
-  } catch (error:any) {
-    if (showErrorToast) {
-      toast({ title: 'Error', description: error.message || errorMessage, variant: 'destructive' })
-    }
-    return null
-  }
-}
+export default api

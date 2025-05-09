@@ -10,9 +10,10 @@ import { toast } from "@/components/ui/use-toast"
 interface PdfGeneratorProps {
   contentRef: React.RefObject<HTMLDivElement>
   fileName?: string
+  className?: string
 }
 
-export function PdfGenerator({ contentRef, fileName = "invoice" }: PdfGeneratorProps) {
+export function PdfGenerator({ contentRef, fileName }: PdfGeneratorProps) {
   const generatePdf = async () => {
     if (!contentRef.current) return
 
@@ -22,6 +23,7 @@ export function PdfGenerator({ contentRef, fileName = "invoice" }: PdfGeneratorP
         useCORS: true,
         logging: false,
         allowTaint: true,
+        backgroundColor: "#ffffff",
       })
 
       const imgData = canvas.toDataURL("image/png")
@@ -53,7 +55,7 @@ export function PdfGenerator({ contentRef, fileName = "invoice" }: PdfGeneratorP
   }
 
   return (
-    <Button variant="outline" onClick={generatePdf}>
+    <Button variant="outline" onClick={generatePdf}  >
       <Download className="mr-2 h-4 w-4" />
       Download PDF
     </Button>

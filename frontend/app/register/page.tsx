@@ -5,15 +5,13 @@ import type React from "react"
 import { useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
+import { useAuth } from "@/contexts/auth-context"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { FileText, ArrowLeft } from "lucide-react"
-import { motion } from "framer-motion"
-import { useAuth } from "@/contexts/auth-context"
-import { toast } from "@/components/ui/use-toast"
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { LoadingSpinner } from "@/components/loading-spinner"
+import { FcGoogle } from "react-icons/fc"
 
 export default function RegisterPage() {
   const [username, setUsername] = useState("")
@@ -21,18 +19,16 @@ export default function RegisterPage() {
   const [password, setPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const { register } = useAuth()
+  const [error, setError] = useState("")
+  const { register, loginWithGoogle } = useAuth()
   const router = useRouter()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    setError("")
 
     if (password !== confirmPassword) {
-      toast({
-        title: "Passwords don't match",
-        description: "Please make sure your passwords match.",
-        variant: "destructive",
-      })
+      setError("Passwords do not match")
       return
     }
 
@@ -41,129 +37,124 @@ export default function RegisterPage() {
     try {
       const success = await register(username, email, password)
       if (success) {
-        
         router.push("/dashboard")
-        toast({
-          title: "Registration successful",
-          description: "Welcome to Invoicely!",
-        })
       } else {
-        toast({
-          title: "Registration failed",
-          description: "An error occurred during registration. Please try again.",
-          variant: "destructive",
-        })
+        setError("Registration failed. Please try again.")
       }
-    } catch (error) {
-      toast({
-        title: "Registration failed",
-        description: "An error occurred. Please try again.",
-        variant: "destructive",
-      })
+    } catch (err) {
+      setError("An error occurred. Please try again.")
     } finally {
       setIsSubmitting(false)
     }
   }
 
-  return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-muted/30 p-4">
-      <Link
-        href="/"
-        className="absolute top-8 left-8 flex items-center text-muted-foreground hover:text-foreground transition-colors"
-      >
-        <ArrowLeft className="mr-2 h-4 w-4" />
-        Back to home
-      </Link>
+  const handleGoogleSignup = async () => {
+    try {
+      await loginWithGoogle()
+    } catch (err) {
+      setError("Google signup failed. Please try again.")
+    }
+  }
 
-      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
-        <Card className="w-full max-w-md">
-          <CardHeader className="space-y-1">
-            <div className="flex justify-center mb-4">
-              <FileText className="h-10 w-10 text-purple-600" />
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-purple-50 to-indigo-50 dark:from-gray-900 dark:to-gray-800 p-4">
+      <Card className="w-full max-w-md shadow-lg border-purple-100 dark:border-gray-700">
+        <CardHeader className="space-y-1 text-center">
+          <CardTitle className="text-2xl font-bold tracking-tight text-purple-700 dark:text-purple-400">
+            Create an account
+          </CardTitle>
+          <CardDescription>Enter your information to create an account</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="username">Username</Label>
+              <Input
+                id="username"
+                placeholder="johndoe"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                required
+                className="border-purple-200 focus:border-purple-400 dark:border-gray-600"
+              />
             </div>
-            <CardTitle className="text-2xl text-center">Create an account</CardTitle>
-            <CardDescription className="text-center">
-              Enter your information to get started with Invoicely
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit}>
-              <div className="grid gap-4">
-                <div className="grid gap-2">
-                  <Label htmlFor="username">Full Name</Label>
-                  <Input
-                    id="username"
-                    placeholder="John Doe"
-                    value={username}
-                    onChange={(e) => setUsername(e.target.value)}
-                    required
-                  />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="email">Email</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    placeholder="john@example.com"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    required
-                  />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="password">Password</Label>
-                  <Input
-                    id="password"
-                    type="password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    required
-                  />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="confirm">Confirm Password</Label>
-                  <Input
-                    id="confirm"
-                    type="password"
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                    required
-                  />
-                </div>
-                <Button className="w-full bg-purple-600 hover:bg-purple-700" type="submit" disabled={isSubmitting}>
-                  {isSubmitting ? (
-                    <span className="flex items-center">
-                      <LoadingSpinner size="sm" className="mr-2" />
-                      Creating account...
-                    </span>
-                  ) : (
-                    "Create account"
-                  )}
-                </Button>
-              </div>
-            </form>
-          </CardContent>
-          <CardFooter className="flex flex-col">
-            <div className="text-center text-sm text-muted-foreground mt-2">
-              By creating an account, you agree to our{" "}
-              <Link href="/terms" className="underline underline-offset-4 hover:text-primary">
-                Terms of Service
-              </Link>{" "}
-              and{" "}
-              <Link href="/privacy" className="underline underline-offset-4 hover:text-primary">
-                Privacy Policy
-              </Link>
-              .
+            <div className="space-y-2">
+              <Label htmlFor="email">Email</Label>
+              <Input
+                id="email"
+                type="email"
+                placeholder="name@example.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                className="border-purple-200 focus:border-purple-400 dark:border-gray-600"
+              />
             </div>
-            <div className="text-center text-sm text-muted-foreground mt-4">
-              Already have an account?{" "}
-              <Link href="/login" className="text-purple-600 hover:underline">
-                Sign in
-              </Link>
+            <div className="space-y-2">
+              <Label htmlFor="password">Password</Label>
+              <Input
+                id="password"
+                type="password"
+                placeholder="••••••••"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                className="border-purple-200 focus:border-purple-400 dark:border-gray-600"
+              />
             </div>
-          </CardFooter>
-        </Card>
-      </motion.div>
+            <div className="space-y-2">
+              <Label htmlFor="confirmPassword">Confirm Password</Label>
+              <Input
+                id="confirmPassword"
+                type="password"
+                placeholder="••••••••"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                required
+                className="border-purple-200 focus:border-purple-400 dark:border-gray-600"
+              />
+            </div>
+            {error && <p className="text-sm font-medium text-red-500">{error}</p>}
+            <Button
+              type="submit"
+              className="w-full bg-purple-600 hover:bg-purple-700 text-white"
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? <LoadingSpinner size="sm" /> : "Sign Up"}
+            </Button>
+          </form>
+
+          <div className="relative">
+            <div className="absolute inset-0 flex items-center">
+              <span className="w-full border-t border-gray-300 dark:border-gray-600"></span>
+            </div>
+            <div className="relative flex justify-center text-xs uppercase">
+              <span className="bg-white dark:bg-gray-800 px-2 text-gray-500 dark:text-gray-400">Or continue with</span>
+            </div>
+          </div>
+
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full border-purple-200 hover:bg-purple-50 dark:border-gray-600 dark:hover:bg-gray-700 flex items-center justify-center gap-2"
+            onClick={handleGoogleSignup}
+          >
+            <FcGoogle className="h-5 w-5" />
+            <span>Sign up with Google</span>
+          </Button>
+        </CardContent>
+        <CardFooter className="flex justify-center">
+          <p className="text-sm text-gray-600 dark:text-gray-400">
+            Already have an account?{" "}
+            <Link
+              href="/login"
+              className="font-medium text-purple-600 hover:text-purple-800 dark:text-purple-400 dark:hover:text-purple-300"
+            >
+              Sign in
+            </Link>
+          </p>
+        </CardFooter>
+      </Card>
     </div>
   )
 }

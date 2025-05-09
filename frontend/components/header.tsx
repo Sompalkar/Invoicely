@@ -6,12 +6,14 @@ import { ModeToggle } from "@/components/mode-toggle"
 import { FileText, Menu, X } from "lucide-react"
 import { useState } from "react"
 import { motion, AnimatePresence } from "framer-motion"
+import { useAuth } from "@/contexts/auth-context"
 
 export function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
+  const { isAuthenticated, user } = useAuth()
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b bg-background/80 backdrop-blur-md">
+    <header className="sticky top-0 z-50 w-full border-b bg-background/60 backdrop-blur-md">
       <div className="container flex h-16 items-center justify-between px-4 md:px-6">
         <Link href="/" className="flex items-center gap-2">
           <FileText className="h-6 w-6 text-purple-600" />
@@ -27,12 +29,24 @@ export function Header() {
           <Link href="#faq" className="text-sm font-medium hover:text-purple-600 transition-colors">
             FAQ
           </Link>
-          <Link href="/login" className="text-sm font-medium hover:text-purple-600 transition-colors">
-            Login
-          </Link>
-          <Button asChild className="rounded-full bg-purple-600 hover:bg-purple-700">
-            <Link href="/register">Get Started</Link>
-          </Button>
+
+          {isAuthenticated ? (
+            <>
+              <Button asChild className="rounded-full bg-purple-600 hover:bg-purple-700">
+                <Link href="/dashboard">Dashboard</Link>
+              </Button>
+            </>
+          ) : (
+            <>
+              <Link href="/login" className="text-sm font-medium hover:text-purple-600 transition-colors">
+                Login
+              </Link>
+              <Button asChild className="rounded-full bg-purple-600 hover:bg-purple-700">
+                <Link href="/register">Get Started</Link>
+              </Button>
+            </>
+          )}
+
           <ModeToggle />
         </nav>
         <div className="flex md:hidden items-center gap-4">
@@ -82,20 +96,33 @@ export function Header() {
                 >
                   FAQ
                 </Link>
-                <Link
-                  href="/login"
-                  className="text-lg font-medium hover:text-purple-600 transition-colors"
-                  onClick={() => setIsMenuOpen(false)}
-                >
-                  Login
-                </Link>
-                <Button
-                  asChild
-                  className="rounded-full bg-purple-600 hover:bg-purple-700 w-full"
-                  onClick={() => setIsMenuOpen(false)}
-                >
-                  <Link href="/register">Get Started</Link>
-                </Button>
+
+                {isAuthenticated ? (
+                  <Button
+                    asChild
+                    className="rounded-full bg-purple-600 hover:bg-purple-700 w-full"
+                    onClick={() => setIsMenuOpen(false)}
+                  >
+                    <Link href="/dashboard">Dashboard</Link>
+                  </Button>
+                ) : (
+                  <>
+                    <Link
+                      href="/login"
+                      className="text-lg font-medium hover:text-purple-600 transition-colors"
+                      onClick={() => setIsMenuOpen(false)}
+                    >
+                      Login
+                    </Link>
+                    <Button
+                      asChild
+                      className="rounded-full bg-purple-600 hover:bg-purple-700 w-full"
+                      onClick={() => setIsMenuOpen(false)}
+                    >
+                      <Link href="/register">Get Started</Link>
+                    </Button>
+                  </>
+                )}
               </nav>
             </div>
           </motion.div>

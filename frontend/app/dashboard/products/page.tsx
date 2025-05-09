@@ -31,6 +31,7 @@ import {
 } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
+import { productsAPI, apiHandler } from "@/lib/api"
 
 interface Product {
   _id: string
@@ -55,24 +56,6 @@ export default function ProductsPage() {
   const [price, setPrice] = useState<number>(0)
   const [taxable, setTaxable] = useState(true)
 
-  // Sample products for demo
-  const sampleProducts = [
-    { _id: "1", name: "Web Design", description: "Professional website design services", price: 1500, taxable: true },
-    { _id: "2", name: "Logo Design", description: "Custom logo design with revisions", price: 500, taxable: true },
-    {
-      _id: "3",
-      name: "Consulting",
-      description: "Professional consulting services (hourly)",
-      price: 150,
-      taxable: true,
-    },
-    { _id: "4", name: "Development", description: "Software development services", price: 2000, taxable: true },
-    { _id: "5", name: "Maintenance", description: "Monthly website maintenance", price: 250, taxable: true },
-    { _id: "6", name: "SEO Services", description: "Search engine optimization", price: 800, taxable: true },
-    { _id: "7", name: "Content Writing", description: "Professional content creation", price: 300, taxable: true },
-    { _id: "8", name: "Hosting (Non-taxable)", description: "Web hosting services", price: 120, taxable: false },
-  ]
-
   useEffect(() => {
     fetchProducts()
   }, [])
@@ -80,21 +63,15 @@ export default function ProductsPage() {
   const fetchProducts = async () => {
     setIsLoading(true)
     try {
-      // In a real implementation, we would fetch from the API
-      // const data = await productsAPI.getAll()
-      // setProducts(data)
-
-      // For demo purposes, we'll use sample data
-      setTimeout(() => {
-        setProducts(sampleProducts)
-        setIsLoading(false)
-      }, 500)
+      const data = await productsAPI.getAll()
+      setProducts(data)
     } catch (error) {
       toast({
         title: "Error",
         description: "Failed to fetch products. Please try again.",
         variant: "destructive",
       })
+    } finally {
       setIsLoading(false)
     }
   }
@@ -134,40 +111,20 @@ export default function ProductsPage() {
 
     try {
       if (editingProduct) {
-        // In a real implementation, we would update via API
-        // await productsAPI.update(editingProduct._id, productData)
-
-        // For demo purposes, update the local state
-        setProducts(products.map((p) => (p._id === editingProduct._id ? { ...p, ...productData } : p)))
-
-        toast({
-          title: "Success",
-          description: "Product updated successfully",
+        await apiHandler(() => productsAPI.update(editingProduct._id, productData), {
+          successMessage: "Product updated successfully",
+          errorMessage: "Failed to update product",
         })
       } else {
-        // In a real implementation, we would create via API
-        // const result = await productsAPI.create(productData)
-
-        // For demo purposes, add to the local state with a fake ID
-        const newProduct = {
-          _id: `temp-${Date.now()}`,
-          ...productData,
-        }
-
-        setProducts([...products, newProduct])
-
-        toast({
-          title: "Success",
-          description: "Product created successfully",
+        await apiHandler(() => productsAPI.create(productData), {
+          successMessage: "Product created successfully",
+          errorMessage: "Failed to create product",
         })
       }
+      fetchProducts()
       handleCloseDialog()
     } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to save product. Please try again.",
-        variant: "destructive",
-      })
+      console.error("Error saving product:", error)
     } finally {
       setIsSubmitting(false)
     }
@@ -176,22 +133,13 @@ export default function ProductsPage() {
   const handleDeleteProduct = async (id: string) => {
     if (confirm("Are you sure you want to delete this product? This action cannot be undone.")) {
       try {
-        // In a real implementation, we would delete via API
-        // await productsAPI.delete(id)
-
-        // For demo purposes, update the local state
-        setProducts(products.filter((p) => p._id !== id))
-
-        toast({
-          title: "Success",
-          description: "Product deleted successfully",
+        await apiHandler(() => productsAPI.delete(id), {
+          successMessage: "Product deleted successfully",
+          errorMessage: "Failed to delete product",
         })
+        fetchProducts()
       } catch (error) {
-        toast({
-          title: "Error",
-          description: "Failed to delete product. Please try again.",
-          variant: "destructive",
-        })
+        console.error("Error deleting product:", error)
       }
     }
   }
@@ -203,17 +151,22 @@ export default function ProductsPage() {
   )
 
   return (
-    <div className="flex min-h-screen flex-col">
-      <DashboardHeader />
-      <div className="flex flex-1">
-        <DashboardNav />
-        <main className="flex-1 p-6">
+    <div className=" min-h-screen">
+      
+      <div className="">
+       
+        <main className="flex-1 p-6 overflow-auto">
           <div className="flex justify-between items-center mb-6">
             <div>
-              <h1 className="text-2xl font-bold">Products</h1>
+              <h1 className="text-2xl font-bold bg-gradient-to-r from-purple-600 to-violet-600 bg-clip-text text-transparent">
+                Products
+              </h1>
               <p className="text-muted-foreground">Manage your product catalog</p>
             </div>
-            <Button className="bg-purple-600 hover:bg-purple-700" onClick={() => handleOpenDialog()}>
+            <Button
+              className="bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-700 hover:to-violet-700 shadow-md shadow-purple-500/20"
+              onClick={() => handleOpenDialog()}
+            >
               <Plus className="mr-2 h-4 w-4" />
               Add Product
             </Button>
@@ -225,7 +178,7 @@ export default function ProductsPage() {
               <Input
                 type="search"
                 placeholder="Search products..."
-                className="pl-8 w-full sm:w-[300px]"
+                className="pl-8 w-full sm:w-[300px] border-purple-100 dark:border-purple-800/30 focus-visible:ring-purple-500"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
@@ -237,9 +190,9 @@ export default function ProductsPage() {
               <LoadingSpinner size="lg" />
             </div>
           ) : (
-            <div className="rounded-md border">
+            <div className="rounded-md border border-purple-100 dark:border-purple-800/30 shadow-sm overflow-hidden">
               <Table>
-                <TableHeader>
+                <TableHeader className="bg-purple-50 dark:bg-purple-900/20">
                   <TableRow>
                     <TableHead>Product</TableHead>
                     <TableHead>Price</TableHead>
@@ -256,7 +209,7 @@ export default function ProductsPage() {
                     </TableRow>
                   ) : (
                     filteredProducts.map((product) => (
-                      <TableRow key={product._id}>
+                      <TableRow key={product._id} className="hover:bg-purple-50/50 dark:hover:bg-purple-900/10">
                         <TableCell>
                           <div>
                             <p className="font-medium">{product.name}</p>
@@ -265,12 +218,16 @@ export default function ProductsPage() {
                         </TableCell>
                         <TableCell>₹{product.price.toFixed(2)}</TableCell>
                         <TableCell>
-                          <Switch checked={product.taxable} disabled />
+                          <Switch checked={product.taxable} disabled className="data-[state=checked]:bg-purple-600" />
                         </TableCell>
                         <TableCell className="text-right">
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="icon">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="hover:bg-purple-100 dark:hover:bg-purple-900/30"
+                              >
                                 <MoreHorizontal className="h-4 w-4" />
                                 <span className="sr-only">Actions</span>
                               </Button>
@@ -306,9 +263,11 @@ export default function ProductsPage() {
           )}
 
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-            <DialogContent className="sm:max-w-[500px]">
+            <DialogContent className="sm:max-w-[500px] border-purple-100 dark:border-purple-800/30">
               <DialogHeader>
-                <DialogTitle>{editingProduct ? "Edit Product" : "Add New Product"}</DialogTitle>
+                <DialogTitle className="text-purple-800 dark:text-purple-200">
+                  {editingProduct ? "Edit Product" : "Add New Product"}
+                </DialogTitle>
                 <DialogDescription>
                   {editingProduct
                     ? "Update the product's information below."
@@ -325,6 +284,7 @@ export default function ProductsPage() {
                       onChange={(e) => setName(e.target.value)}
                       placeholder="Web Design"
                       required
+                      className="border-purple-100 dark:border-purple-800/30 focus-visible:ring-purple-500"
                     />
                   </div>
                   <div className="grid gap-2">
@@ -335,6 +295,7 @@ export default function ProductsPage() {
                       onChange={(e) => setDescription(e.target.value)}
                       placeholder="Professional website design services"
                       rows={3}
+                      className="border-purple-100 dark:border-purple-800/30 focus-visible:ring-purple-500"
                     />
                   </div>
                   <div className="grid gap-2">
@@ -348,18 +309,33 @@ export default function ProductsPage() {
                       onChange={(e) => setPrice(Number(e.target.value))}
                       placeholder="1500"
                       required
+                      className="border-purple-100 dark:border-purple-800/30 focus-visible:ring-purple-500"
                     />
                   </div>
                   <div className="flex items-center space-x-2">
-                    <Switch id="taxable" checked={taxable} onCheckedChange={setTaxable} />
+                    <Switch
+                      id="taxable"
+                      checked={taxable}
+                      onCheckedChange={setTaxable}
+                      className="data-[state=checked]:bg-purple-600"
+                    />
                     <Label htmlFor="taxable">Taxable (GST applicable)</Label>
                   </div>
                 </div>
                 <DialogFooter>
-                  <Button variant="outline" type="button" onClick={handleCloseDialog}>
+                  <Button
+                    variant="outline"
+                    type="button"
+                    onClick={handleCloseDialog}
+                    className="border-purple-100 dark:border-purple-800/30 hover:bg-purple-50 dark:hover:bg-purple-900/20"
+                  >
                     Cancel
                   </Button>
-                  <Button type="submit" disabled={isSubmitting}>
+                  <Button
+                    type="submit"
+                    disabled={isSubmitting}
+                    className="bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-700 hover:to-violet-700"
+                  >
                     {isSubmitting ? (
                       <span className="flex items-center">
                         <LoadingSpinner size="sm" className="mr-2" />

@@ -13,7 +13,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Calendar } from "@/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { format, addDays } from "date-fns"
-import { CalendarIcon, Plus, Trash2, FileText, Send, ImageIcon, Pencil, Save, ExternalLink } from "lucide-react"
+import { CalendarIcon, Plus, Trash2, Send, ImageIcon, Pencil, Save, ExternalLink, Eye } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { invoicesAPI, clientsAPI, apiHandler } from "@/lib/api"
 import { toast } from "@/components/ui/use-toast"
@@ -117,7 +117,10 @@ export function CreateInvoiceForm() {
   const [newClientPhone, setNewClientPhone] = useState("")
   const [newClientAddress, setNewClientAddress] = useState("")
   const [isSubmittingClient, setIsSubmittingClient] = useState(false)
-  const previewRef = useRef<HTMLDivElement>(null)
+  // const previewRef = useRef<HTMLDivElement>(null)
+// In CreateInvoiceForm component
+const pdfPreviewRef = useRef<HTMLDivElement>(null);
+
 
   // Product templates for quick addition
   const productTemplates = [
@@ -405,7 +408,7 @@ export function CreateInvoiceForm() {
   const selectedClientData = clients.find((client) => client._id === selectedClient)
 
   return (
-    <div className="container mx-auto p-4 max-w-6xl">
+    <div className="container mx-auto p-2 md:p-4 max-w-6xl">
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-2xl font-bold">Create New Invoice</h1>
@@ -693,121 +696,123 @@ export function CreateInvoiceForm() {
                   </div>
                 </div>
                 <div className="border rounded-md overflow-hidden">
-                  <table className="w-full">
-                    <thead className="bg-muted">
-                      <tr>
-                        <th className="text-left p-3 font-medium">Description</th>
-                        <th className="text-right p-3 font-medium w-24">Quantity</th>
-                        <th className="text-right p-3 font-medium w-32">Price</th>
-                        <th className="text-right p-3 font-medium w-32">Amount</th>
-                        <th className="text-center p-3 font-medium w-24">Taxable</th>
-                        <th className="p-3 w-16"></th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {lineItems.map((item, index) => (
-                        <tr key={item.id} className="border-t">
-                          <td className="p-3">
-                            <Input
-                              value={item.description}
-                              onChange={(e) => handleLineItemChange(item.id, "description", e.target.value)}
-                              placeholder="Item description"
-                            />
-                          </td>
-                          <td className="p-3">
-                            <Input
-                              type="number"
-                              min="1"
-                              value={item.quantity}
-                              onChange={(e) =>
-                                handleLineItemChange(item.id, "quantity", Number.parseInt(e.target.value) || 0)
-                              }
-                              className="text-right"
-                            />
-                          </td>
-                          <td className="p-3">
-                            <Input
-                              type="number"
-                              min="0"
-                              step="0.01"
-                              value={item.price}
-                              onChange={(e) =>
-                                handleLineItemChange(item.id, "price", Number.parseFloat(e.target.value) || 0)
-                              }
-                              className="text-right"
-                            />
-                          </td>
-                          <td className="p-3 text-right">₹{(item.quantity * item.price).toFixed(2)}</td>
-                          <td className="p-3 text-center">
-                            <Switch
-                              checked={item.taxable}
-                              onCheckedChange={(checked) => handleLineItemChange(item.id, "taxable", checked)}
-                            />
-                          </td>
-                          <td className="p-3 text-center">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => handleRemoveLineItem(item.id)}
-                              disabled={lineItems.length === 1}
-                            >
-                              <Trash2 className="h-4 w-4 text-muted-foreground" />
-                            </Button>
-                          </td>
+                  <div className="overflow-x-auto">
+                    <table className="w-full min-w-[600px]">
+                      <thead className="bg-muted">
+                        <tr>
+                          <th className="text-left p-3 font-medium">Description</th>
+                          <th className="text-right p-3 font-medium w-24">Quantity</th>
+                          <th className="text-right p-3 font-medium w-32">Price</th>
+                          <th className="text-right p-3 font-medium w-32">Amount</th>
+                          <th className="text-center p-3 font-medium w-24">Taxable</th>
+                          <th className="p-3 w-16"></th>
                         </tr>
-                      ))}
-                    </tbody>
-                    <tfoot className="bg-muted/50">
-                      <tr>
-                        <td colSpan={3} className="p-3 text-right font-medium">
-                          Subtotal:
-                        </td>
-                        <td className="p-3 text-right font-medium">₹{calculateSubtotal().toFixed(2)}</td>
-                        <td colSpan={2}></td>
-                      </tr>
-                      <tr>
-                        <td colSpan={3} className="p-3 text-right font-medium">
-                          <div className="flex items-center justify-end gap-2">
-                            <span>CGST ({cgstRate}%):</span>
-                            <Input
-                              type="number"
-                              min="0"
-                              max="50"
-                              value={cgstRate}
-                              onChange={(e) => setCgstRate(Number(e.target.value))}
-                              className="w-16 text-right"
-                            />
-                          </div>
-                        </td>
-                        <td className="p-3 text-right font-medium">₹{calculateCGST().toFixed(2)}</td>
-                        <td colSpan={2}></td>
-                      </tr>
-                      <tr>
-                        <td colSpan={3} className="p-3 text-right font-medium">
-                          <div className="flex items-center justify-end gap-2">
-                            <span>SGST ({sgstRate}%):</span>
-                            <Input
-                              type="number"
-                              min="0"
-                              max="50"
-                              value={sgstRate}
-                              onChange={(e) => setSgstRate(Number(e.target.value))}
-                              className="w-16 text-right"
-                            />
-                          </div>
-                        </td>
-                        <td className="p-3 text-right font-medium">₹{calculateSGST().toFixed(2)}</td>
-                        <td colSpan={2}></td>
-                      </tr>
-                      <tr>
-                        <td colSpan={3} className="p-3 text-right font-medium">
-                          Total:
-                        </td>
-                        <td className="p-3 text-right font-bold text-lg">₹{calculateTotal().toFixed(2)}</td>
-                        <td colSpan={2}></td>
-                      </tr>
-                    </tfoot>
-                  </table>
+                      </thead>
+                      <tbody>
+                        {lineItems.map((item, index) => (
+                          <tr key={item.id} className="border-t">
+                            <td className="p-3">
+                              <Input
+                                value={item.description}
+                                onChange={(e) => handleLineItemChange(item.id, "description", e.target.value)}
+                                placeholder="Item description"
+                              />
+                            </td>
+                            <td className="p-3">
+                              <Input
+                                type="number"
+                                min="1"
+                                value={item.quantity}
+                                onChange={(e) =>
+                                  handleLineItemChange(item.id, "quantity", Number.parseInt(e.target.value) || 0)
+                                }
+                                className="text-right"
+                              />
+                            </td>
+                            <td className="p-3">
+                              <Input
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                value={item.price}
+                                onChange={(e) =>
+                                  handleLineItemChange(item.id, "price", Number.parseFloat(e.target.value) || 0)
+                                }
+                                className="text-right"
+                              />
+                            </td>
+                            <td className="p-3 text-right">₹{(item.quantity * item.price).toFixed(2)}</td>
+                            <td className="p-3 text-center">
+                              <Switch
+                                checked={item.taxable}
+                                onCheckedChange={(checked) => handleLineItemChange(item.id, "taxable", checked)}
+                              />
+                            </td>
+                            <td className="p-3 text-center">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handleRemoveLineItem(item.id)}
+                                disabled={lineItems.length === 1}
+                              >
+                                <Trash2 className="h-4 w-4 text-muted-foreground" />
+                              </Button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                      <tfoot className="bg-muted/50">
+                        <tr>
+                          <td colSpan={3} className="p-3 text-right font-medium">
+                            Subtotal:
+                          </td>
+                          <td className="p-3 text-right font-medium">₹{calculateSubtotal().toFixed(2)}</td>
+                          <td colSpan={2}></td>
+                        </tr>
+                        <tr>
+                          <td colSpan={3} className="p-3 text-right font-medium">
+                            <div className="flex items-center justify-end gap-2">
+                              <span>CGST ({cgstRate}%):</span>
+                              <Input
+                                type="number"
+                                min="0"
+                                max="50"
+                                value={cgstRate}
+                                onChange={(e) => setCgstRate(Number(e.target.value))}
+                                className="w-16 text-right"
+                              />
+                            </div>
+                          </td>
+                          <td className="p-3 text-right font-medium">₹{calculateCGST().toFixed(2)}</td>
+                          <td colSpan={2}></td>
+                        </tr>
+                        <tr>
+                          <td colSpan={3} className="p-3 text-right font-medium">
+                            <div className="flex items-center justify-end gap-2">
+                              <span>SGST ({sgstRate}%):</span>
+                              <Input
+                                type="number"
+                                min="0"
+                                max="50"
+                                value={sgstRate}
+                                onChange={(e) => setSgstRate(Number(e.target.value))}
+                                className="w-16 text-right"
+                              />
+                            </div>
+                          </td>
+                          <td className="p-3 text-right font-medium">₹{calculateSGST().toFixed(2)}</td>
+                          <td colSpan={2}></td>
+                        </tr>
+                        <tr>
+                          <td colSpan={3} className="p-3 text-right font-medium">
+                            Total:
+                          </td>
+                          <td className="p-3 text-right font-bold text-lg">₹{calculateTotal().toFixed(2)}</td>
+                          <td colSpan={2}></td>
+                        </tr>
+                      </tfoot>
+                    </table>
+                  </div>
                 </div>
               </div>
 
@@ -963,7 +968,7 @@ export function CreateInvoiceForm() {
               <Button variant="outline" onClick={() => router.push("/dashboard")}>
                 Cancel
               </Button>
-              <Button variant="default"   disabled={isLoading}>
+              <Button variant="default" onClick={() => setActiveTab("preview")} disabled={isLoading}>
                 {isLoading ? (
                   <span className="flex items-center">
                     <LoadingSpinner size="sm" className="mr-2" />
@@ -971,16 +976,22 @@ export function CreateInvoiceForm() {
                   </span>
                 ) : (
                   <span className="flex items-center">
-                    <FileText className="mr-2 h-4 w-4" />
-                    Save Invoice (Soon...)
+                    <Eye className="mr-2 h-4 w-4" />
+                    Preview Invoice
                   </span>
                 )}
               </Button>
-              <PdfGenerator contentRef={previewRef} fileName="invoice" />
+              {/* <PdfGenerator contentRef={previewRef} fileName="invoice" /> */}
+
+
+              
+              <PdfGenerator contentRef={pdfPreviewRef} fileName="invoice" />
+
+
               <Button
                 variant="default"
                 className="bg-purple-600 hover:bg-purple-700"
-                
+                onClick={() => handleSubmit("send")}
                 disabled={isLoading}
               >
                 {isLoading ? (
@@ -991,7 +1002,7 @@ export function CreateInvoiceForm() {
                 ) : (
                   <span className="flex items-center">
                     <Send className="mr-2 h-4 w-4" />
-                    Save & Send (Soon...)
+                    Save & Send
                   </span>
                 )}
               </Button>
@@ -1038,34 +1049,33 @@ export function CreateInvoiceForm() {
         </DialogContent>
       </Dialog>
       <div className="absolute -left-[9999px]">
-  <div ref={previewRef}>
-    <InvoicePreview
-      invoiceData={{
-        companyName,
-        companyAddress,
-        companyLogo,
-        companySignature,
-        companyGst,
-        companyPan,
-        clientMode,
-        selectedClientData,
-        tempClient,
-        dueDate,
-        lineItems,
-        notes,
-        taxInfo: {
-          cgstRate,
-          sgstRate,
-          cgstAmount: calculateCGST(),
-          sgstAmount: calculateSGST(),
-          taxableAmount: calculateTaxableAmount(),
-        },
-      }}
-      onEditClick={() => setActiveTab("details")}
-    />
-  </div>
-</div>
-
-</div>
+        <div ref={pdfPreviewRef}>
+          <InvoicePreview
+            invoiceData={{
+              companyName,
+              companyAddress,
+              companyLogo,
+              companySignature,
+              companyGst,
+              companyPan,
+              clientMode,
+              selectedClientData,
+              tempClient,
+              dueDate,
+              lineItems,
+              notes,
+              taxInfo: {
+                cgstRate,
+                sgstRate,
+                cgstAmount: calculateCGST(),
+                sgstAmount: calculateSGST(),
+                taxableAmount: calculateTaxableAmount(),
+              },
+            }}
+            onEditClick={() => setActiveTab("details")}
+          />
+        </div>
+      </div>
+    </div>
   )
 }
