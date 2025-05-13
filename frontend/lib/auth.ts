@@ -100,9 +100,4 @@ export async function getCurrentUser(req: NextRequest): Promise<IUser | null> {
 
   return null
 }
-
-// Middleware to protect routes
-export async function authMiddleware(req: NextRequest): Promise<{ user: IUser | null; isAuthenticated: boolean }> {
-  const user = await getCurrentUser(req)
-  return { user, isAuthenticated: !!user }
-}
+ 
